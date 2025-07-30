@@ -75,7 +75,7 @@ void RS485_Slave_Handler(void) {
     }
     
     // 检查是否需要发送心跳
-    if (current_time - g_rs485_slave.last_heartbeat_time > 1000) { // 每秒一次
+    if (current_time - g_rs485_slave.last_heartbeat_time > 100) { // 每100ms一次
         RS485_Slave_SendHeartbeat();
     }
     

@@ -13,7 +13,7 @@
 #define RS485_BAUDRATE      115200  // 可选9600
 #define RS485_TIMEOUT       200     // 200ms超时
 #define RS485_RETRY_MAX     3       // 最大重传次数
-#define HEARTBEAT_INTERVAL  1000    // 心跳间隔1秒
+#define HEARTBEAT_INTERVAL  100     // 心跳间隔100ms
 
 // 帧格式定义
 #define FRAME_START         0xAA
