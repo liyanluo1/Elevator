@@ -1,0 +1,140 @@
+13:28:03 **** Incremental Build of configuration Debug for project Smart Elevator ****
+make -j8 all 
+arm-none-eabi-gcc "../Core/Src/main.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F407xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Src/main.d" -MT"Core/Src/main.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Src/main.o"
+arm-none-eabi-gcc "../Core/Modules/Stepper/motor_control.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F407xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/Stepper/motor_control.d" -MT"Core/Modules/Stepper/motor_control.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Modules/Stepper/motor_control.o"
+arm-none-eabi-gcc "../Core/Modules/RS485/rs485_comm.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F407xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/RS485/rs485_comm.d" -MT"Core/Modules/RS485/rs485_comm.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Modules/RS485/rs485_comm.o"
+arm-none-eabi-gcc "../Core/Modules/CAN/can.c" -mcpu=cortex-m4 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F407xx -c -I../Core/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc -I../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy -I../Drivers/CMSIS/Device/ST/STM32F4xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/CAN/can.d" -MT"Core/Modules/CAN/can.o" --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -o "Core/Modules/CAN/can.o"
+../Core/Src/main.c: In function 'main':
+../Core/Src/main.c:101:3: warning: implicit declaration of function 'Motor_Init' [-Wimplicit-function-declaration]
+  101 |   Motor_Init(&motor, 0x01);  // 假设电机CAN ID为0x200
+      |   ^~~~~~~~~~
+../Core/Src/main.c:101:15: error: 'motor' undeclared (first use in this function)
+  101 |   Motor_Init(&motor, 0x01);  // 假设电机CAN ID为0x200
+      |               ^~~~~
+../Core/Src/main.c:101:15: note: each undeclared identifier is reported only once for each function it appears in
+../Core/Src/main.c:104:3: warning: implicit declaration of function 'Motor_SetSpeed' [-Wimplicit-function-declaration]
+  104 |   Motor_SetSpeed(&motor, 1000);
+      |   ^~~~~~~~~~~~~~
+../Core/Src/main.c:105:3: warning: implicit declaration of function 'CAN1_UserFilterStart' [-Wimplicit-function-declaration]
+  105 |   CAN1_UserFilterStart();
+      |   ^~~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c:106:3: error: 'demo_start_time' undeclared (first use in this function)
+  106 |   demo_start_time = HAL_GetTick();
+      |   ^~~~~~~~~~~~~~~
+../Core/Src/main.c:107:3: error: 'last_send_time' undeclared (first use in this function)
+  107 |   last_send_time = HAL_GetTick();
+      |   ^~~~~~~~~~~~~~
+../Core/Src/main.c:113:3: warning: implicit declaration of function 'Display_Welcome' [-Wimplicit-function-declaration]
+  113 |   Display_Welcome();
+      |   ^~~~~~~~~~~~~~~
+../Core/Src/main.c:114:3: warning: implicit declaration of function 'Display_Clear' [-Wimplicit-function-declaration]
+  114 |   Display_Clear();
+      |   ^~~~~~~~~~~~~
+../Core/Src/main.c:115:5: warning: implicit declaration of function 'Display_Text' [-Wimplicit-function-declaration]
+  115 |     Display_Text(0, 10, "Motor Control");
+      |     ^~~~~~~~~~~~
+../Core/Src/main.c:117:5: warning: implicit declaration of function 'Display_Update' [-Wimplicit-function-declaration]
+  117 |     Display_Update();
+      |     ^~~~~~~~~~~~~~
+../Core/Src/main.c:129:32: warning: implicit declaration of function 'CAN1_Send_Num' [-Wimplicit-function-declaration]
+  129 |               uint8_t result = CAN1_Send_Num(0x01, test_cmd);
+      |                                ^~~~~~~~~~~~~
+../Core/Src/main.c:132:17: error: 'can_send_status' undeclared (first use in this function)
+  132 |                 can_send_status = 1;  // 发送成功
+      |                 ^~~~~~~~~~~~~~~
+../Core/Src/main.c:133:17: error: 'send_count' undeclared (first use in this function)
+  133 |                 send_count++;
+      |                 ^~~~~~~~~~
+../Core/Src/main.c:142:32: error: 'last_display_update' undeclared (first use in this function)
+  142 |             if (current_time - last_display_update >= 500) {
+      |                                ^~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c:143:15: warning: implicit declaration of function 'Update_OLED_Display' [-Wimplicit-function-declaration]
+  143 |               Update_OLED_Display();
+      |               ^~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c: At top level:
+../Core/Src/main.c:171:11: error: expected identifier or '(' before '}' token
+  171 |           }
+      |           ^
+../Core/Src/main.c:172:1: error: expected identifier or '(' before '}' token
+  172 | }
+      | ^
+../Core/Src/main.c:205:1: error: expected identifier or '(' before '}' token
+  205 | }
+      | ^
+../Core/Src/main.c:391:13: warning: conflicting types for 'Update_OLED_Display'; have 'void(void)'
+  391 | static void Update_OLED_Display(void)
+      |             ^~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c:391:13: error: static declaration of 'Update_OLED_Display' follows non-static declaration
+../Core/Src/main.c:143:15: note: previous implicit declaration of 'Update_OLED_Display' with type 'void(void)'
+  143 |               Update_OLED_Display();
+      |               ^~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c: In function 'Update_OLED_Display':
+../Core/Src/main.c:395:43: error: 'demo_start_time' undeclared (first use in this function)
+  395 |   uint32_t running_time = (current_time - demo_start_time) / 1000;  // 运行时间（秒）
+      |                                           ^~~~~~~~~~~~~~~
+../Core/Src/main.c:396:51: error: 'last_send_time' undeclared (first use in this function)
+  396 |   uint32_t time_since_last_send = (current_time - last_send_time) / 100;  // 距离上次发送时间（0.1秒）
+      |                                                   ^~~~~~~~~~~~~~
+../Core/Src/main.c:404:3: warning: implicit declaration of function 'sprintf' [-Wimplicit-function-declaration]
+  404 |   sprintf(buffer, "Time: %lu s", running_time);
+      |   ^~~~~~~
+../Core/Src/main.c:21:1: note: include '<stdio.h>' or provide a declaration of 'sprintf'
+   20 | #include "main.h"
+  +++ |+#include <stdio.h>
+   21 | 
+../Core/Src/main.c:404:3: warning: incompatible implicit declaration of built-in function 'sprintf' [-Wbuiltin-declaration-mismatch]
+  404 |   sprintf(buffer, "Time: %lu s", running_time);
+      |   ^~~~~~~
+../Core/Src/main.c:404:3: note: include '<stdio.h>' or provide a declaration of 'sprintf'
+../Core/Src/main.c:408:38: error: 'send_count' undeclared (first use in this function)
+  408 |   sprintf(buffer, "Send: %lu times", send_count);
+      |                                      ^~~~~~~~~~
+../Core/Src/main.c:412:10: error: 'can_send_status' undeclared (first use in this function)
+  412 |   switch(can_send_status) {
+      |          ^~~~~~~~~~~~~~~
+../Core/Src/main.c:426:7: warning: implicit declaration of function 'Motor_IsMoving' [-Wimplicit-function-declaration]
+  426 |   if (Motor_IsMoving(&motor)) {
+      |       ^~~~~~~~~~~~~~
+../Core/Src/main.c:426:23: error: 'motor' undeclared (first use in this function)
+  426 |   if (Motor_IsMoving(&motor)) {
+      |                       ^~~~~
+../Core/Src/main.c: At top level:
+../Core/Src/main.c:444:1: error: unknown type name 'Motor_t'
+  444 | Motor_t motor;
+      | ^~~~~~~
+../Core/Src/main.c: In function 'HAL_CAN_RxFifo0MsgPendingCallback':
+../Core/Src/main.c:453:9: warning: implicit declaration of function 'Motor_ProcessRxMessage' [-Wimplicit-function-declaration]
+  453 |         Motor_ProcessRxMessage(&motor, rx_header.StdId, rx_data);
+      |         ^~~~~~~~~~~~~~~~~~~~~~
+../Core/Src/main.c: In function 'Motor_Demo_Task':
+../Core/Src/main.c:459:44: error: 'demo_start_time' undeclared (first use in this function)
+  459 |     uint32_t elapsed_time = current_time - demo_start_time;
+      |                                            ^~~~~~~~~~~~~~~
+../Core/Src/main.c:467:13: error: 'demo_step' undeclared (first use in this function)
+  467 |     switch (demo_step) {
+      |             ^~~~~~~~~
+../Core/Src/main.c:470:17: warning: implicit declaration of function 'Motor_RunExample1' [-Wimplicit-function-declaration]
+  470 |                 Motor_RunExample1(&motor);  // 发送厂商的CAN_SENT1命令
+      |                 ^~~~~~~~~~~~~~~~~
+../Core/Src/main.c:478:17: warning: implicit declaration of function 'Motor_RunExample2' [-Wimplicit-function-declaration]
+  478 |                 Motor_RunExample2(&motor);  // 发送厂商的CAN_SENT2命令
+      |                 ^~~~~~~~~~~~~~~~~
+../Core/Src/main.c:486:17: warning: implicit declaration of function 'Motor_RunExample3' [-Wimplicit-function-declaration]
+  486 |                 Motor_RunExample3(&motor);  // 发送厂商的CAN_SENT3命令
+      |                 ^~~~~~~~~~~~~~~~~
+../Core/Src/main.c:494:17: warning: implicit declaration of function 'Motor_Stop' [-Wimplicit-function-declaration]
+  494 |                 Motor_Stop(&motor);  // 停止电机
+      |                 ^~~~~~~~~~
+../Core/Src/main.c: At top level:
+../Core/Src/main.c:457:13: warning: 'Motor_Demo_Task' defined but not used [-Wunused-function]
+  457 | static void Motor_Demo_Task(void) {
+      |             ^~~~~~~~~~~~~~~
+../Core/Src/main.c:391:13: warning: 'Update_OLED_Display' defined but not used [-Wunused-function]
+  391 | static void Update_OLED_Display(void)
+      |             ^~~~~~~~~~~~~~~~~~~
+make: *** [Core/Src/subdir.mk:37: Core/Src/main.o] Error 1
+make: *** Waiting for unfinished jobs....
+"make -j8 all" terminated with exit code 2. Build might be incomplete.
+
+13:28:13 Build Failed. 20 errors, 20 warnings. (took 9s.666ms)
+

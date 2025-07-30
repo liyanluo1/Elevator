@@ -1,0 +1,19 @@
+#ifndef __USART_H
+#define __USART_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "../../Core/Inc/stm32f4xx_hal.h"   /* ← 替换成你的具体系列头，例如 stm32f1xx_hal.h */
+
+/* 公开的全局句柄 —— 供 HAL_UART_Transmit/Receive 等调用 */
+extern UART_HandleTypeDef huart3;
+
+/* 初始化函数 —— 在 main() 里调用一次即可 */
+void MX_USART3_UART_Init(void);
+
+#ifdef __cplusplus
+}
+#endif
+#endif /* __USART_H */

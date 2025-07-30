@@ -1,0 +1,80 @@
+#include "oled.h"
+
+// 软件SPI发送一个字节（MSB先发，CPOL=0, CPHA=0）
+void OLED_SPI_SendByte(uint8_t byte) {
+    for (int i = 0; i < 8; i++) {
+        if (byte & 0x80) {
+            HAL_GPIO_WritePin(OLED_MOSI_GPIO_Port, OLED_MOSI_Pin, GPIO_PIN_SET);
+        } else {
+            HAL_GPIO_WritePin(OLED_MOSI_GPIO_Port, OLED_MOSI_Pin, GPIO_PIN_RESET);
+        }
+        byte <<= 1;
+
+        HAL_GPIO_WritePin(OLED_SCK_GPIO_Port, OLED_SCK_Pin, GPIO_PIN_SET);  // 时钟上升沿
+        HAL_Delay(1);  // 微小延时，可优化为__NOP()或us延时
+        HAL_GPIO_WritePin(OLED_SCK_GPIO_Port, OLED_SCK_Pin, GPIO_PIN_RESET);  // 时钟下降沿
+    }
+}
+
+// 发送命令
+void OLED_SendCommand(uint8_t cmd) {
+    HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_RESET);  // DC=0: 命令
+    OLED_SPI_SendByte(cmd);
+}
+
+// 发送数据
+void OLED_SendData(uint8_t data) {
+    HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_SET);  // DC=1: 数据
+    OLED_SPI_SendByte(data);
+}
+
+// 复位OLED
+void OLED_Reset(void) {
+    HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, GPIO_PIN_RESET);  // RES=0
+    HAL_Delay(10);  // 保持10ms
+    HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, GPIO_PIN_SET);  // RES=1
+    HAL_Delay(10);
+}
+
+// 初始化OLED (SSD1306 128x64)
+void OLED_Init(void) {
+    OLED_Reset();  // 先复位
+
+    OLED_SendCommand(0xAE);  // 显示关闭
+    OLED_SendCommand(0xD5);  // 时钟分频
+    OLED_SendCommand(0x80);
+    OLED_SendCommand(0xA8);  // 多路复用比
+    OLED_SendCommand(0x3F);  // 64-1
+    OLED_SendCommand(0xD3);  // 显示偏移
+    OLED_SendCommand(0x00);
+    OLED_SendCommand(0x40);  // 起始行0
+    OLED_SendCommand(0x8D);  // 电荷泵
+    OLED_SendCommand(0x14);  // 启用
+    OLED_SendCommand(0x20);  // 内存寻址模式
+    OLED_SendCommand(0x00);  // 水平
+    OLED_SendCommand(0xA1);  // 段重映射
+    OLED_SendCommand(0xC8);  // COM扫描方向
+    OLED_SendCommand(0xDA);  // COM引脚配置
+    OLED_SendCommand(0x12);
+    OLED_SendCommand(0x81);  // 对比度
+    OLED_SendCommand(0xCF);
+    OLED_SendCommand(0xD9);  // 预充电
+    OLED_SendCommand(0xF1);
+    OLED_SendCommand(0xDB);  // VCOMH
+    OLED_SendCommand(0x40);
+    OLED_SendCommand(0xA4);  // 全部点亮
+    OLED_SendCommand(0xA6);  // 正常显示
+    OLED_SendCommand(0xAF);  // 显示开启
+}
+
+// 清屏（全黑）
+void OLED_Clear(void) {
+    for (int i = 0; i < 8; i++) {  // 8页 (64行/8)
+        OLED_SendCommand(0xB0 + i);  // 页地址
+        OLED_SendCommand(0x00);  // 列低4位
+        OLED_SendCommand(0x10);  // 列高4位
+        for (int j = 0; j < 128; j++) {
+            OLED_SendData(0x00);  // 写0
+        }
+    }
+}

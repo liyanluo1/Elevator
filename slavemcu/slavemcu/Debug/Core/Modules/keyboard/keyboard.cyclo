@@ -1,0 +1,2 @@
+../Core/Modules/keyboard/keyboard.c:15:6:Keyboard_Init	1
+../Core/Modules/keyboard/keyboard.c:39:9:Keyboard_Scan	7

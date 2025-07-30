@@ -1,0 +1,45 @@
+2025-07-30 13:22:06,731 [INFO] WebApp:194 - Connection lost
+2025-07-30 13:22:18,066 [INFO] WebApp:191 - Connection restablished
+2025-07-30 13:22:20,228 [INFO] WebApp:194 - Connection lost
+2025-07-30 13:22:20,535 [INFO] WebApp:191 - Connection restablished
+2025-07-30 13:26:34,377 [INFO] UtilMem:75 - End SaveConfig() Used Memory: 976104776 Bytes (1073741824)
+2025-07-30 13:26:36,237 [INFO] UtilMem:75 - End SaveConfig() Used Memory: 802428696 Bytes (1073741824)
+2025-07-30 13:26:43,293 [INFO] UtilMem:75 - End SaveConfig() Used Memory: 839727960 Bytes (1073741824)
+2025-07-30 13:26:44,128 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: CAN
+2025-07-30 13:26:44,128 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: SYS
+2025-07-30 13:26:44,129 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: RCC
+2025-07-30 13:26:44,129 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: NVIC
+2025-07-30 13:26:44,129 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: USART
+2025-07-30 13:26:44,132 [INFO] BlockDiagram:2775 - set Specific Code input for plugin: GPIO
+2025-07-30 13:26:44,136 [INFO] CodeGenerator:882 - code generatio: config db path: C:\ST\STM32CubeIDE_1.18.1\STM32CubeIDE\plugins\com.st.stm32cube.common.mx_6.14.1.202504091515\\db\
+2025-07-30 13:26:44,632 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\MXTmpFiles\license.tmp_save
+2025-07-30 13:26:45,351 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\MXTmpFiles\license.tmp
+2025-07-30 13:26:45,550 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\MXTmpFiles\gpio.tmp_save
+2025-07-30 13:26:45,842 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\MXTmpFiles\gpio.tmp
+2025-07-30 13:26:46,120 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Src\stm32f4xx_it.c_save
+2025-07-30 13:26:46,362 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Src\stm32f4xx_it.c
+2025-07-30 13:26:46,372 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Inc\stm32f4xx_it.h_save
+2025-07-30 13:26:46,535 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Inc\stm32f4xx_it.h
+2025-07-30 13:26:46,557 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Src\stm32f4xx_hal_msp.c_save
+2025-07-30 13:26:46,833 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Src\stm32f4xx_hal_msp.c
+2025-07-30 13:26:46,839 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\MXTmpFiles\system.tmp_save
+2025-07-30 13:26:46,939 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\MXTmpFiles\system.tmp
+2025-07-30 13:26:46,952 [INFO] CodeEngine:319 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Inc\stm32f4xx_hal_conf.h_save
+2025-07-30 13:26:47,103 [INFO] CodeEngine:343 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Inc\stm32f4xx_hal_conf.h
+2025-07-30 13:26:47,148 [INFO] ApiDbMcu:508 - Load IP Config File for CAN1
+2025-07-30 13:26:47,156 [INFO] ApiDbMcu:508 - Load IP Config File for USART3
+2025-07-30 13:26:47,165 [INFO] ApiDbMcu:508 - Load IP Config File for RCC
+2025-07-30 13:26:47,181 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Inc\main.h_save
+2025-07-30 13:26:47,308 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Inc\main.h
+2025-07-30 13:26:47,315 [INFO] CodeEngine:263 - oldGeneratedFile, C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Src\main.c_save
+2025-07-30 13:26:47,537 [INFO] CodeEngine:287 - Generated code: C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\stepper\Core\Src\main.c
+2025-07-30 13:26:48,122 [INFO] ProjectBuilder:3324 - Time for Copy HAL[1] : 258mS.
+2025-07-30 13:26:48,137 [INFO] ProjectBuilder:4912 - Project Generator version: 4.6.0.1-B1
+2025-07-30 13:26:48,328 [INFO] ConfigFileManager:1590 - The Die is : DIE413
+2025-07-30 13:26:48,344 [INFO] ApiDbMcu:508 - Load IP Config File for FATFS
+2025-07-30 13:26:48,348 [INFO] ApiDbMcu:508 - Load IP Config File for FREERTOS
+2025-07-30 13:26:48,353 [INFO] ApiDbMcu:508 - Load IP Config File for LIBJPEG
+2025-07-30 13:26:48,359 [INFO] ApiDbMcu:508 - Load IP Config File for LWIP
+2025-07-30 13:26:48,369 [INFO] ApiDbMcu:508 - Load IP Config File for MBEDTLS
+2025-07-30 13:26:48,380 [INFO] ApiDbMcu:508 - Load IP Config File for USB_DEVICE
+2025-07-30 13:26:48,384 [INFO] ApiDbMcu:508 - Load IP Config File for USB_HOST
