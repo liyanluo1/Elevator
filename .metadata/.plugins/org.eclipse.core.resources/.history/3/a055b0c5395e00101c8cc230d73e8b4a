@@ -1,0 +1,27 @@
+#ifndef OLED_H
+#define OLED_H
+
+#include "stm32f4xx_hal.h"  // F4xx系列HAL头文件，根据你的芯片调整
+#include "u8g2/u8g2.h"
+// 引脚定义
+#define OLED_SCK_GPIO_Port  GPIOD
+#define OLED_SCK_Pin        GPIO_PIN_14  // SCL
+#define OLED_MOSI_GPIO_Port GPIOD
+#define OLED_MOSI_Pin       GPIO_PIN_13  // SDA
+#define OLED_DC_GPIO_Port   GPIOD
+#define OLED_DC_Pin         GPIO_PIN_11  // DC
+#define OLED_RES_GPIO_Port  GPIOD
+#define OLED_RES_Pin        GPIO_PIN_12  // RES
+extern u8g2_t u8g2;
+// 函数原型
+void OLED_SPI_SendByte(uint8_t byte);
+void OLED_SendCommand(uint8_t cmd);
+void OLED_SendData(uint8_t data);
+void OLED_Reset(void);
+void OLED_Init(void);
+void OLED_Clear(void);
+void OLED_Init(void);
+void OLED_DisplayText(void);  // 新函数：显示文字
+uint8_t u8x8_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);  // GPIO回调
+uint8_t u8x8_byte_stm32_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);  // SPI字节发送回调
+#endif /* OLED_H */

@@ -1,0 +1,155 @@
+#include "oled.h"
+#include "u8g2/u8g2.h"
+// u8g2全局结构
+u8g2_t u8g2;
+
+// GPIO回调函数（处理DC/RES/SCK等）
+uint8_t u8x8_gpio_and_delay_stm32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+    switch (msg) {
+        case U8X8_MSG_GPIO_AND_DELAY_INIT:
+            // 初始化引脚（但CubeIDE已做，跳过或添加延时）
+            HAL_Delay(1);
+            break;
+        case U8X8_MSG_DELAY_MILLI:
+            HAL_Delay(arg_int);
+            break;
+        case U8X8_MSG_GPIO_DC:
+            HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, arg_int ? GPIO_PIN_SET : GPIO_PIN_RESET);
+            break;
+        case U8X8_MSG_GPIO_RESET:
+            HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, arg_int ? GPIO_PIN_SET : GPIO_PIN_RESET);
+            break;
+        case U8X8_MSG_GPIO_SPI_CLOCK:
+            HAL_GPIO_WritePin(OLED_SCK_GPIO_Port, OLED_SCK_Pin, arg_int ? GPIO_PIN_SET : GPIO_PIN_RESET);
+            break;
+        case U8X8_MSG_GPIO_SPI_DATA:
+            HAL_GPIO_WritePin(OLED_MOSI_GPIO_Port, OLED_MOSI_Pin, arg_int ? GPIO_PIN_SET : GPIO_PIN_RESET);
+            break;
+        default:
+            return 0;  // 不支持
+    }
+    return 1;  // 支持
+}
+
+// SPI字节发送回调（软件模拟）
+uint8_t u8x8_byte_stm32_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+    uint8_t *data;
+    switch (msg) {
+        case U8X8_MSG_BYTE_SEND:
+            data = (uint8_t *)arg_ptr;
+            while (arg_int > 0) {
+                OLED_SPI_SendByte(*data);  // 用你的旧发送函数（见下）
+                data++;
+                arg_int--;
+            }
+            break;
+        case U8X8_MSG_BYTE_INIT:
+            // 初始化（已由CubeIDE做）
+            break;
+        case U8X8_MSG_BYTE_SET_DC:
+            HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, arg_int ? GPIO_PIN_SET : GPIO_PIN_RESET);
+            break;
+        case U8X8_MSG_BYTE_START_TRANSFER:
+        case U8X8_MSG_BYTE_END_TRANSFER:
+            // 无CS引脚，忽略
+            break;
+        default:
+            return 0;
+    }
+    return 1;
+}
+
+// 你的旧软件SPI发送字节（从之前复制，稍改以兼容）
+void OLED_SPI_SendByte(uint8_t byte) {
+    for (int i = 0; i < 8; i++) {
+        if (byte & 0x80) {
+            HAL_GPIO_WritePin(OLED_MOSI_GPIO_Port, OLED_MOSI_Pin, GPIO_PIN_SET);
+        } else {
+            HAL_GPIO_WritePin(OLED_MOSI_GPIO_Port, OLED_MOSI_Pin, GPIO_PIN_RESET);
+        }
+        byte <<= 1;
+        HAL_GPIO_WritePin(OLED_SCK_GPIO_Port, OLED_SCK_Pin, GPIO_PIN_SET);
+        HAL_Delay(1);  // 或__NOP()优化
+        HAL_GPIO_WritePin(OLED_SCK_GPIO_Port, OLED_SCK_Pin, GPIO_PIN_RESET);
+    }
+}
+
+// 初始化u8g2（替换旧OLED_Init）
+void OLED_Init(void) {
+    u8g2_Setup_ssd1306_128x64_noname_f(&u8g2, U8G2_R0, u8x8_byte_stm32_spi, u8x8_gpio_and_delay_stm32);  // SSD1306设置，4线SPI，全缓冲
+    u8g2_InitDisplay(&u8g2);  // 初始化显示
+    u8g2_SetPowerSave(&u8g2, 0);  // 开启显示
+    u8g2_ClearBuffer(&u8g2);  // 清屏
+    u8g2_SendBuffer(&u8g2);
+}
+
+// 显示文字示例
+void OLED_DisplayText(void) {
+    u8g2_ClearBuffer(&u8g2);  // 清缓冲
+    u8g2_SetFont(&u8g2, u8g2_font_ncenB08_tr);  // 选择字体（8像素高，内置u8g2）
+    u8g2_DrawString(&u8g2, 0, 10, "Hello World!");  // 在(0,10)位置画字符串
+    u8g2_DrawString(&u8g2, 0, 25, "STM32 OLED Test");  // 另一行
+    u8g2_SendBuffer(&u8g2);  // 发送到显示屏
+}
+// 发送命令
+void OLED_SendCommand(uint8_t cmd) {
+    HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_RESET);  // DC=0: 命令
+    OLED_SPI_SendByte(cmd);
+}
+
+// 发送数据
+void OLED_SendData(uint8_t data) {
+    HAL_GPIO_WritePin(OLED_DC_GPIO_Port, OLED_DC_Pin, GPIO_PIN_SET);  // DC=1: 数据
+    OLED_SPI_SendByte(data);
+}
+
+// 复位OLED
+void OLED_Reset(void) {
+    HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, GPIO_PIN_RESET);  // RES=0
+    HAL_Delay(10);  // 保持10ms
+    HAL_GPIO_WritePin(OLED_RES_GPIO_Port, OLED_RES_Pin, GPIO_PIN_SET);  // RES=1
+    HAL_Delay(10);
+}
+
+// 初始化OLED (SSD1306 128x64)
+//void OLED_Init(void) {
+//    OLED_Reset();  // 先复位
+//
+//    OLED_SendCommand(0xAE);  // 显示关闭
+//    OLED_SendCommand(0xD5);  // 时钟分频
+//    OLED_SendCommand(0x80);
+//    OLED_SendCommand(0xA8);  // 多路复用比
+//    OLED_SendCommand(0x3F);  // 64-1
+//    OLED_SendCommand(0xD3);  // 显示偏移
+//    OLED_SendCommand(0x00);
+//    OLED_SendCommand(0x40);  // 起始行0
+//    OLED_SendCommand(0x8D);  // 电荷泵
+//    OLED_SendCommand(0x14);  // 启用
+//    OLED_SendCommand(0x20);  // 内存寻址模式
+//    OLED_SendCommand(0x00);  // 水平
+//    OLED_SendCommand(0xA1);  // 段重映射
+//    OLED_SendCommand(0xC8);  // COM扫描方向
+//    OLED_SendCommand(0xDA);  // COM引脚配置
+//    OLED_SendCommand(0x12);
+//    OLED_SendCommand(0x81);  // 对比度
+//    OLED_SendCommand(0xCF);
+//    OLED_SendCommand(0xD9);  // 预充电
+//    OLED_SendCommand(0xF1);
+//    OLED_SendCommand(0xDB);  // VCOMH
+//    OLED_SendCommand(0x40);
+//    OLED_SendCommand(0xA4);  // 全部点亮
+//    OLED_SendCommand(0xA6);  // 正常显示
+//    OLED_SendCommand(0xAF);  // 显示开启
+//}
+
+// 清屏（全黑）
+void OLED_Clear(void) {
+    for (int i = 0; i < 8; i++) {  // 8页 (64行/8)
+        OLED_SendCommand(0xB0 + i);  // 页地址
+        OLED_SendCommand(0x00);  // 列低4位
+        OLED_SendCommand(0x10);  // 列高4位
+        for (int j = 0; j < 128; j++) {
+            OLED_SendData(0x00);  // 写0
+        }
+    }
+}

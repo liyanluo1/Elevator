@@ -1,0 +1,143 @@
+#include "motor_control.h"
+
+// 4相8拍步进序列
+static const uint8_t step_sequence[8][4] = {
+    {1, 0, 0, 0},  // A
+    {1, 1, 0, 0},  // AB
+    {0, 1, 0, 0},  // B
+    {0, 1, 1, 0},  // BC
+    {0, 0, 1, 0},  // C
+    {0, 0, 1, 1},  // CD
+    {0, 0, 0, 1},  // D
+    {1, 0, 0, 1}   // DA
+};
+
+static uint32_t last_step_time = 0;
+
+// 设置步进电机引脚状态
+static void StepperMotor_SetPins(StepperMotor_t* motor, uint8_t step) {
+    HAL_GPIO_WritePin(motor->pin1_port, motor->pin1_pin,
+                     step_sequence[step][0] ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(motor->pin2_port, motor->pin2_pin,
+                     step_sequence[step][1] ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(motor->pin3_port, motor->pin3_pin,
+                     step_sequence[step][2] ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(motor->pin4_port, motor->pin4_pin,
+                     step_sequence[step][3] ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
+// 步进电机初始化
+void StepperMotor_Init(StepperMotor_t* motor,
+                      GPIO_TypeDef* port1, uint16_t pin1,
+                      GPIO_TypeDef* port2, uint16_t pin2,
+                      GPIO_TypeDef* port3, uint16_t pin3,
+                      GPIO_TypeDef* port4, uint16_t pin4) {
+    motor->pin1_port = port1;
+    motor->pin1_pin = pin1;
+    motor->pin2_port = port2;
+    motor->pin2_pin = pin2;
+    motor->pin3_port = port3;
+    motor->pin3_pin = pin3;
+    motor->pin4_port = port4;
+    motor->pin4_pin = pin4;
+
+    motor->current_position = 0;
+    motor->target_position = 0;
+    motor->step_delay = 2;  // 默认2ms延时
+    motor->current_step = 0;
+    motor->is_moving = false;
+    motor->direction = true;
+
+    // 初始化所有引脚为低电平
+    StepperMotor_SetPins(motor, 0);
+}
+
+// 设置步进速度
+void StepperMotor_SetSpeed(StepperMotor_t* motor, uint32_t delay_ms) {
+    motor->step_delay = delay_ms;
+}
+
+// 移动指定步数
+void StepperMotor_MoveSteps(StepperMotor_t* motor, int32_t steps) {
+    motor->target_position = motor->current_position + steps;
+    motor->is_moving = (steps != 0);
+    motor->direction = (steps > 0);
+}
+
+// 移动到指定位置
+void StepperMotor_MoveTo(StepperMotor_t* motor, int32_t position) {
+    int32_t steps = position - motor->current_position;
+    StepperMotor_MoveSteps(motor, steps);
+}
+
+// 停止电机
+void StepperMotor_Stop(StepperMotor_t* motor) {
+    motor->is_moving = false;
+    motor->target_position = motor->current_position;
+    // 关闭所有线圈以节省功耗
+    StepperMotor_SetPins(motor, 0);
+}
+
+// 步进电机任务处理
+void StepperMotor_Task(StepperMotor_t* motor) {
+    if (!motor->is_moving) {
+        return;
+    }
+
+    uint32_t current_time = HAL_GetTick();
+
+    // 检查是否到达步进时间
+    if (current_time - last_step_time < motor->step_delay) {
+        return;
+    }
+
+    // 检查是否到达目标位置
+    if (motor->current_position == motor->target_position) {
+        motor->is_moving = false;
+        return;
+    }
+
+    // 执行步进
+    if (motor->direction) {
+        // 正向步进
+        motor->current_step++;
+        if (motor->current_step >= 8) {
+            motor->current_step = 0;
+        }
+        motor->current_position++;
+    } else {
+        // 反向步进
+        if (motor->current_step == 0) {
+            motor->current_step = 7;
+        } else {
+            motor->current_step--;
+        }
+        motor->current_position--;
+    }
+
+    // 设置引脚状态
+    StepperMotor_SetPins(motor, motor->current_step);
+    last_step_time = current_time;
+}
+
+// 获取当前位置
+int32_t StepperMotor_GetPosition(StepperMotor_t* motor) {
+    return motor->current_position;
+}
+
+// 检查是否正在运动
+bool StepperMotor_IsMoving(StepperMotor_t* motor) {
+    return motor->is_moving;
+}
+
+// 获取目标位置
+int32_t StepperMotor_GetTargetPosition(StepperMotor_t* motor) {
+    return motor->target_position;
+}
+
+// 设置零点
+void StepperMotor_SetZero(StepperMotor_t* motor) {
+    motor->current_position = 0;
+    motor->target_position = 0;
+    motor->is_moving = false;
+}
