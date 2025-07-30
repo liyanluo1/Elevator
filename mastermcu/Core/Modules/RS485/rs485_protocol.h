@@ -10,9 +10,10 @@
 #define RS485_DE_Pin        GPIO_PIN_0
 
 // 通信参数
-#define RS485_BAUDRATE      115200
+#define RS485_BAUDRATE      115200  // 可选9600
 #define RS485_TIMEOUT       200     // 200ms超时
 #define RS485_RETRY_MAX     3       // 最大重传次数
+#define HEARTBEAT_INTERVAL  1000    // 心跳间隔1秒
 
 // 帧格式定义
 #define FRAME_START         0xAA
@@ -32,6 +33,13 @@ typedef enum {
     CMD_NACK = 0x08,
     CMD_ERROR = 0x09
 } CommandType_t;
+
+// 门控命令
+typedef enum {
+    DOOR_OPEN = 0x01,
+    DOOR_CLOSE = 0x02,
+    DOOR_STOP = 0x03
+} DoorCommand_t;
 
 // 发送状态机
 typedef enum {
@@ -88,6 +96,7 @@ typedef struct {
     TxBuffer_t tx_buffer;
     RxBuffer_t rx_buffer;
     uint32_t last_sync_time;
+    uint32_t last_heartbeat_time;
     bool sync_pending;
     uint16_t crc_table[256];    // CRC查找表
 } RS485_Control_t;
@@ -102,7 +111,7 @@ void RS485_Handler(void);
 // 发送函数
 bool RS485_SendCommand(CommandType_t cmd, uint8_t* data, uint8_t length);
 bool RS485_SendSync(void);
-bool RS485_SendDoorCommand(uint8_t door_cmd);
+bool RS485_SendDoorCommand(DoorCommand_t door_cmd);
 bool RS485_RequestSensorStatus(void);
 bool RS485_SendHeartbeat(void);
 

@@ -88,10 +88,20 @@ void RS485_Handler(void) {
         g_rs485.sync_pending = false;
     }
     
+    // 发送心跳
+    if (current_time - g_rs485.last_heartbeat_time > HEARTBEAT_INTERVAL) {
+        RS485_SendHeartbeat();
+        g_rs485.last_heartbeat_time = current_time;
+    }
+    
     // 更新连接状态
-    if (current_time - g_blackboard.comm.last_rx_time > 1000) {
+    if (current_time - g_blackboard.comm.last_rx_time > 5000) {
         g_blackboard.comm.slave_connected = false;
         g_blackboard.rs485_sync_delay_flag = true;
+        if (current_time - g_blackboard.comm.last_rx_time > 10000) {
+            // 通信超时事件
+            Blackboard_PushEvent(EVENT_COMM_TIMEOUT, 0);
+        }
     } else {
         g_blackboard.comm.slave_connected = true;
         g_blackboard.rs485_sync_delay_flag = false;
@@ -231,8 +241,9 @@ bool RS485_SendSync(void) {
 }
 
 // 发送门控命令
-bool RS485_SendDoorCommand(uint8_t door_cmd) {
-    return RS485_SendCommand(CMD_DOOR_OPEN + door_cmd - 1, &door_cmd, 1);
+bool RS485_SendDoorCommand(DoorCommand_t door_cmd) {
+    uint8_t data[1] = {door_cmd};
+    return RS485_SendCommand(CMD_DOOR_OPEN + door_cmd - 1, data, 1);
 }
 
 // 设置RS485模式
@@ -399,4 +410,22 @@ uint32_t RS485_GetLastRxTime(void) {
 // 检查同步是否延迟
 bool RS485_IsSyncDelayed(void) {
     return g_blackboard.rs485_sync_delay_flag;
+}
+
+// 请求传感器状态
+bool RS485_RequestSensorStatus(void) {
+    return RS485_SendCommand(CMD_SENSOR_STATUS, NULL, 0);
+}
+
+// 发送心跳
+bool RS485_SendHeartbeat(void) {
+    uint8_t data[4];
+    uint32_t uptime = HAL_GetTick();
+    
+    data[0] = (uptime >> 24) & 0xFF;
+    data[1] = (uptime >> 16) & 0xFF;
+    data[2] = (uptime >> 8) & 0xFF;
+    data[3] = uptime & 0xFF;
+    
+    return RS485_SendCommand(CMD_HEARTBEAT, data, 4);
 }
