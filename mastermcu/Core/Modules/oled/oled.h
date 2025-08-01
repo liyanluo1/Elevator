@@ -3,7 +3,8 @@
 
 #include "stm32f4xx_hal.h"
 #include "../../Inc/u8g2/u8g2.h"
-#include "../Stepper/motor_control.h"
+// 如果需要电机状态，从blackboard获取
+#include "../Global_bb/blackboard.h"
 #include <stdio.h>
 
 // 显示模块初始化

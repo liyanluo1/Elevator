@@ -1,7 +1,10 @@
 #ifndef __MOTOR_ADVANCED_H
 #define __MOTOR_ADVANCED_H
 
-#include "motor_control.h"
+#include "../Modules/Stepper/motor_control_types.h"
+
+// 注意：motor_advanced已被CANopen取代
+#warning "motor_advanced.h is deprecated, use canopen_stepper.h instead"
 #include <stdbool.h>
 #include <stdint.h>
 
