@@ -1,5 +1,5 @@
 #include "photo_sensor.h"
-#include "rs485_slave.h"
+#include "rs485_slave_adapter.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -200,28 +200,69 @@ void PhotoSensor_GPIO_Init(void) {
     // 使能GPIO时钟
     __HAL_RCC_GPIOC_CLK_ENABLE();
     
-    // 配置GPIO为输入模式，带中断
-    GPIO_InitStruct.Pin = PHOTO_SENSOR_Pin;
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;  // 双边沿触发
-    GPIO_InitStruct.Pull = GPIO_PULLUP;                  // 上拉
-    HAL_GPIO_Init(PHOTO_SENSOR_GPIO_Port, &GPIO_InitStruct);
+    #if USE_NO_SIGNAL
+    // 配置常开信号（黑线）- NPN输出，遮挡时为低电平
+    // 上拉输入，下降沿触发（物体遮挡时触发）
+    GPIO_InitStruct.Pin = PHOTO_SENSOR_NO_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(PHOTO_SENSOR_NO_GPIO_Port, &GPIO_InitStruct);
     
-    // 设置中断优先级并使能
-    HAL_NVIC_SetPriority(PHOTO_SENSOR_IRQ, 2, 0);
-    HAL_NVIC_EnableIRQ(PHOTO_SENSOR_IRQ);
+    // 配置中断优先级
+    HAL_NVIC_SetPriority(PHOTO_SENSOR_NO_IRQ, 2, 0);
+    HAL_NVIC_EnableIRQ(PHOTO_SENSOR_NO_IRQ);
+    #endif
+    
+    #if USE_NC_SIGNAL
+    // 配置常闭信号（白线）- NPN输出，未遮挡时为低电平
+    // 上拉输入，上升沿触发（物体离开时触发）
+    GPIO_InitStruct.Pin = PHOTO_SENSOR_NC_Pin;
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    HAL_GPIO_Init(PHOTO_SENSOR_NC_GPIO_Port, &GPIO_InitStruct);
+    
+    // 配置中断优先级
+    HAL_NVIC_SetPriority(PHOTO_SENSOR_NC_IRQ, 2, 0);
+    HAL_NVIC_EnableIRQ(PHOTO_SENSOR_NC_IRQ);
+    #endif
 }
 
 // 中断服务程序
 void PhotoSensor_ISR(void) {
-    if (__HAL_GPIO_EXTI_GET_IT(PHOTO_SENSOR_Pin) != RESET) {
-        __HAL_GPIO_EXTI_CLEAR_IT(PHOTO_SENSOR_Pin);
+    #if USE_NO_SIGNAL
+    if (__HAL_GPIO_EXTI_GET_IT(PHOTO_SENSOR_NO_Pin) != RESET) {
+        __HAL_GPIO_EXTI_CLEAR_IT(PHOTO_SENSOR_NO_Pin);
         g_photo_sensor.sensor_isr_flag = true;
     }
+    #endif
+    
+    #if USE_NC_SIGNAL
+    if (__HAL_GPIO_EXTI_GET_IT(PHOTO_SENSOR_NC_Pin) != RESET) {
+        __HAL_GPIO_EXTI_CLEAR_IT(PHOTO_SENSOR_NC_Pin);
+        g_photo_sensor.sensor_isr_flag = true;
+    }
+    #endif
 }
 
-// 读取传感器状态
+// 读取常开信号（黑线）
+bool PhotoSensor_ReadNO(void) {
+    // NPN常开：未遮挡=高电平（上拉），遮挡=低电平
+    return (HAL_GPIO_ReadPin(PHOTO_SENSOR_NO_GPIO_Port, PHOTO_SENSOR_NO_Pin) == GPIO_PIN_RESET);
+}
+
+// 读取常闭信号（白线）
+bool PhotoSensor_ReadNC(void) {
+    // NPN常闭：未遮挡=低电平，遮挡=高电平（上拉）
+    return (HAL_GPIO_ReadPin(PHOTO_SENSOR_NC_GPIO_Port, PHOTO_SENSOR_NC_Pin) == GPIO_PIN_SET);
+}
+
+// 读取传感器状态（根据配置选择信号）
 bool PhotoSensor_ReadSensor(void) {
-    return (HAL_GPIO_ReadPin(PHOTO_SENSOR_GPIO_Port, PHOTO_SENSOR_Pin) == GPIO_PIN_RESET);
+    #if USE_NO_SIGNAL
+    return PhotoSensor_ReadNO();
+    #else
+    return PhotoSensor_ReadNC();
+    #endif
 }
 
 // 获取当前状态
@@ -374,7 +415,7 @@ void PhotoSensor_HandleError(void) {
         LocalBlackboard_MarkForSync(SYNC_FIELD_ERROR);
         
         // 发送错误报告
-        RS485_Slave_SendError(0x201);
+        RS485_SlaveAdapter_SendError(0x201);
     }
     
     // 检查恢复条件

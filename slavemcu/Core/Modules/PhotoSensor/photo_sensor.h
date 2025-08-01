@@ -7,12 +7,24 @@
 #include "local_blackboard.h"
 
 // GPIO配置（光电传感器）
-#define PHOTO_SENSOR_GPIO_Port   GPIOC
-#define PHOTO_SENSOR_Pin         GPIO_PIN_0
-#define PHOTO_SENSOR_IRQ         EXTI0_IRQn
+// NPN输出型传感器 - 黑线（常开）配置
+#define PHOTO_SENSOR_NO_GPIO_Port   GPIOC
+#define PHOTO_SENSOR_NO_Pin         GPIO_PIN_0
+#define PHOTO_SENSOR_NO_IRQ         EXTI0_IRQn
+
+// 白线（常闭）配置 - 可选使用
+#define PHOTO_SENSOR_NC_GPIO_Port   GPIOC
+#define PHOTO_SENSOR_NC_Pin         GPIO_PIN_1
+#define PHOTO_SENSOR_NC_IRQ         EXTI1_IRQn
+
+// 使用哪路信号
+#define USE_NO_SIGNAL   1  // 使用常开信号（黑线）
+#define USE_NC_SIGNAL   0  // 使用常闭信号（白线）
 
 // 传感器参数
-#define SENSOR_DEBOUNCE_TIME     50      // 去抖时间（ms）
+#define SENSOR_DEBOUNCE_TIME     10      // 去抖时间（ms）- 传感器响应<1ms
+#define SENSOR_RESPONSE_TIME     1       // 响应时间（ms）
+#define SENSOR_MAX_FREQ          3000    // 最大响应频率（Hz）
 #define SENSOR_TIMEOUT           5000    // 超时时间（ms）
 #define SENSOR_CALIBRATE_TIME    2000    // 校准时间（ms）
 #define FLOOR_PULSE_TOLERANCE    100     // 楼层脉冲容差
@@ -100,6 +112,8 @@ int32_t PhotoSensor_CalculateOffset(uint8_t floor, int32_t current_position);
 void PhotoSensor_GPIO_Init(void);
 void PhotoSensor_ISR(void);
 bool PhotoSensor_ReadSensor(void);
+bool PhotoSensor_ReadNO(void);  // 读取常开信号
+bool PhotoSensor_ReadNC(void);  // 读取常闭信号
 
 // 状态查询
 PhotoState_t PhotoSensor_GetState(void);

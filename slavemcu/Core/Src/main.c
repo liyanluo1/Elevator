@@ -321,9 +321,17 @@ static void ProcessLocalEvents(void) {
   * @retval None
   */
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    if (GPIO_Pin == PHOTO_SENSOR_Pin) {
+    #if USE_NO_SIGNAL
+    if (GPIO_Pin == PHOTO_SENSOR_NO_Pin) {
         PhotoSensor_ISR();
     }
+    #endif
+    
+    #if USE_NC_SIGNAL
+    if (GPIO_Pin == PHOTO_SENSOR_NC_Pin) {
+        PhotoSensor_ISR();
+    }
+    #endif
 }
 
 /**
