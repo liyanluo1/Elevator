@@ -24,7 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "local_blackboard.h"
-#include "rs485_slave.h"
+#include "rs485_slave_adapter.h"
 #include "photo_sensor.h"
 #include "../Modules/keyboard/keyboard.h"
 #include "../Modules/servo/servo_control.h"
@@ -172,7 +172,7 @@ static void SlaveMCU_Init(void) {
     LocalBlackboard_Init();
     
     // 初始化RS485通信（从机模式）
-    RS485_Slave_Init();
+    RS485_SlaveAdapter_Init(&g_local_bb);
     
     // 初始化光电传感器
     PhotoSensor_Init();
@@ -210,7 +210,7 @@ static void SlaveMCU_MainLoop(void) {
     g_local_bb.timestamp = HAL_GetTick();
     
     // 1. RS485通信处理（最高优先级）
-    RS485_Slave_Handler();
+    RS485_SlaveAdapter_Handler();
     
     // 2. 处理本地事件
     ProcessLocalEvents();

@@ -1,7 +1,7 @@
 #include "elevator_fsm.h"
 #include "motor_control.h"
 #include "motor_advanced.h"
-#include "rs485_protocol.h"
+#include "rs485_master.h"
 #include "calibration.h"
 #include <stdio.h>
 
