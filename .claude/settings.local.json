@@ -5,7 +5,8 @@
       "Bash(mkdir:*)",
       "Bash(mv:*)",
       "Bash(mklink:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
