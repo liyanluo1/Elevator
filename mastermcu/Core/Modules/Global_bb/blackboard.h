@@ -63,9 +63,9 @@ typedef struct {
 typedef struct {
     Event_t events[EVENT_QUEUE_SIZE];
     uint8_t head;
-    uint8_t tail;
+    uint8_t tail; 
     uint8_t count;
-} EventQueue_t;
+} EventQueue_t; //ring buffer
 
 // 楼层信息
 typedef struct {
