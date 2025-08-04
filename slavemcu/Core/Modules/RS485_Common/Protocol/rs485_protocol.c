@@ -19,7 +19,7 @@ void RS485_Protocol_Init(RS485_Protocol_t* protocol, RS485_ProtocolConfig_t* con
     }
 }
 
-// 处理接收到的帧
+// 处理接收到的帧//@改成heart beat sync//指令变成状态
 void RS485_Protocol_ProcessFrame(RS485_Protocol_t* protocol, RS485_Frame_t* frame) {
     if (protocol == NULL || frame == NULL) {
         return;

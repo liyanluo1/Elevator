@@ -449,7 +449,7 @@ void RS485_Core_CheckHeartbeat(RS485_Core_t* core) {
     }
 }
 
-// 发送帧
+// 发送帧//@DMA发送
 void RS485_Core_TransmitFrame(RS485_Core_t* core) {
     if (core == NULL) return;
     
