@@ -23,4 +23,10 @@ uint8_t CAN1_Send_Num(uint16_t std_id, const uint8_t *data);
 /* CAN接收回调处理 */
 void CAN1_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);
 
+/* CAN消息处理回调函数指针类型 */
+typedef void (*CAN_RxCallback_t)(uint32_t can_id, uint8_t* data);
+
+/* 注册CAN接收回调函数 */
+void CAN1_RegisterRxCallback(CAN_RxCallback_t callback);
+
 #endif

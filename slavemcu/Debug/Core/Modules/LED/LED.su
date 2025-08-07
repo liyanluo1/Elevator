@@ -1,2 +1,5 @@
 ../Core/Modules/LED/LED.c:8:6:LED_Init	32	static
-../Core/Modules/LED/LED.c:24:6:LED_Flash	24	static
+../Core/Modules/LED/LED.c:24:6:LED_On	8	static
+../Core/Modules/LED/LED.c:28:6:LED_Off	8	static
+../Core/Modules/LED/LED.c:32:6:LED_Toggle	8	static
+../Core/Modules/LED/LED.c:36:6:LED_Flash	24	static

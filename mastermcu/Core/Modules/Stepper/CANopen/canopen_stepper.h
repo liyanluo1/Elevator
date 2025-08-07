@@ -38,6 +38,7 @@
 // 电机参数
 #define OD_MOTOR_RATED_CURRENT  0x2000  // 额定电流
 #define OD_MOTOR_SUBDIVISION    0x2001  // 细分设置
+#define OD_TORQUE_SUBMODE       0x2158  // 力矩子模式 (子索引01: 恒力矩=3)
 
 // 运行模式定义
 typedef enum {
@@ -154,6 +155,20 @@ typedef struct {
 
 // 初始化函数
 void CANopen_Stepper_Init(CANopen_Stepper_t* stepper, uint8_t node_id);
+
+// NMT (Network Management) 功能
+uint8_t CANopen_NMT_StartNode(uint8_t node_id);
+uint8_t CANopen_NMT_PreOperational(uint8_t node_id);
+
+// 力矩模式控制函数
+uint8_t CANopen_SetTorqueMode(CANopen_Stepper_t* stepper);
+uint8_t CANopen_EnableTorqueMode(CANopen_Stepper_t* stepper);
+uint8_t CANopen_SetTargetTorque(CANopen_Stepper_t* stepper, int16_t torque);
+
+// 状态机控制
+uint8_t CANopen_ReadyToSwitchOn(CANopen_Stepper_t* stepper);
+uint8_t CANopen_SwitchedOn(CANopen_Stepper_t* stepper);
+uint8_t CANopen_OperationEnable(CANopen_Stepper_t* stepper);
 
 // SDO通信函数
 uint8_t CANopen_SDO_Write(CANopen_Stepper_t* stepper, uint16_t index, uint8_t subindex, 

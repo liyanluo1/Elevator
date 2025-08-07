@@ -13,7 +13,6 @@ RM := rm -rf
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include Core/Modules/servo/subdir.mk
--include Core/Modules/keyboard/subdir.mk
 -include Core/Modules/LED/subdir.mk
 -include objects.mk
 
@@ -37,34 +36,34 @@ $(wildcard ../makefile.init) \
 $(wildcard ../makefile.targets) \
 
 
-BUILD_ARTIFACT_NAME := zuoju
+BUILD_ARTIFACT_NAME := slavemcu
 BUILD_ARTIFACT_EXTENSION := elf
 BUILD_ARTIFACT_PREFIX :=
 BUILD_ARTIFACT := $(BUILD_ARTIFACT_PREFIX)$(BUILD_ARTIFACT_NAME)$(if $(BUILD_ARTIFACT_EXTENSION),.$(BUILD_ARTIFACT_EXTENSION),)
 
 # Add inputs and outputs from these tool invocations to the build variables 
 EXECUTABLES += \
-zuoju.elf \
+slavemcu.elf \
 
 MAP_FILES += \
-zuoju.map \
+slavemcu.map \
 
 SIZE_OUTPUT += \
 default.size.stdout \
 
 OBJDUMP_LIST += \
-zuoju.list \
+slavemcu.list \
 
 
 # All Target
 all: main-build
 
 # Main-build Target
-main-build: zuoju.elf secondary-outputs
+main-build: slavemcu.elf secondary-outputs
 
 # Tool invocations
-zuoju.elf zuoju.map: $(OBJS) $(USER_OBJS) C:\Users\13483\STM32CubeIDE\workspace_1.19.0\zuoju\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "zuoju.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\13483\STM32CubeIDE\workspace_1.19.0\zuoju\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="zuoju.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+slavemcu.elf slavemcu.map: $(OBJS) $(USER_OBJS) C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\slavemcu\STM32F103C8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "slavemcu.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m3 -T"C:\Users\yogo\STM32CubeIDE\workspace_1.18.1\slavemcu\STM32F103C8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="slavemcu.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
@@ -73,14 +72,14 @@ default.size.stdout: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
 	@echo 'Finished building: $@'
 	@echo ' '
 
-zuoju.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "zuoju.list"
+slavemcu.list: $(EXECUTABLES) makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-objdump -h -S $(EXECUTABLES) > "slavemcu.list"
 	@echo 'Finished building: $@'
 	@echo ' '
 
 # Other Targets
 clean:
-	-$(RM) default.size.stdout zuoju.elf zuoju.list zuoju.map
+	-$(RM) default.size.stdout slavemcu.elf slavemcu.list slavemcu.map
 	-@echo ' '
 
 secondary-outputs: $(SIZE_OUTPUT) $(OBJDUMP_LIST)

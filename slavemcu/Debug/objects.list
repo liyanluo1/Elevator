@@ -1,5 +1,4 @@
 "./Core/Modules/LED/LED.o"
-"./Core/Modules/keyboard/keyboard.o"
 "./Core/Modules/servo/servo.o"
 "./Core/Src/gpio.o"
 "./Core/Src/main.o"

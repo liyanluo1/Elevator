@@ -23,7 +23,6 @@ C_DEPS :=
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 Core/Modules/LED \
-Core/Modules/keyboard \
 Core/Modules/servo \
 Core/Src \
 Core/Startup \

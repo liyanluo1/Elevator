@@ -6,7 +6,20 @@
       "Bash(mv:*)",
       "Bash(mklink:*)",
       "Bash(cp:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(find:*)",
+      "Bash(.disable_modules_for_test.bat)",
+      "Bash(cmd.exe:*)",
+      "Bash(cmd /c:*)",
+      "Bash(.\\disable_unused_headers.bat)",
+      "Bash(disable_unused_headers.bat)",
+      "Bash(dir:*)",
+      "Bash(for:*)",
+      "Bash(do mv \"$file\" \"$file%._\")",
+      "Bash(done)",
+      "Bash(ls:*)",
+      "Bash(.disable_modules_for_servo_test.bat)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

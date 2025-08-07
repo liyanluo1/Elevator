@@ -61,6 +61,14 @@ uint8_t CAN1_Send_Num(uint16_t std_id, const uint8_t *data)
     return CAN1_Send_Frame(std_id, data, 8);
 }
 
+/* CAN接收回调函数指针 */
+static CAN_RxCallback_t g_can_rx_callback = NULL;
+
+/* 注册CAN接收回调函数 */
+void CAN1_RegisterRxCallback(CAN_RxCallback_t callback) {
+    g_can_rx_callback = callback;
+}
+
 /* CAN接收中断回调 */
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
@@ -70,9 +78,10 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
     if (hcan->Instance == CAN1) {
         // 从FIFO0获取消息
         if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rx_header, rx_data) == HAL_OK) {
-            // 这里可以添加消息处理逻辑
-            // 例如：调用CANopen处理函数
-            // CANopen_ProcessRxMessage(&stepper, rx_header.StdId, rx_data);
+            // 调用注册的回调函数
+            if (g_can_rx_callback != NULL) {
+                g_can_rx_callback(rx_header.StdId, rx_data);
+            }
         }
     }
 }

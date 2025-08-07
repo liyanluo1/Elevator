@@ -2,17 +2,7 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Main program body - Slave MCU
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
+  * @brief          : Servo Max Speed Test Program
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -23,13 +13,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "local_blackboard.h"
-#include "rs485_slave_adapter.h"
-#include "photo_sensor.h"
-#include "../Modules/keyboard/keyboard.h"
-#include "../Modules/servo/servo_control.h"
+#include "../Modules/servo/servo.h"
 #include "../Modules/LED/LED.h"
 #include <stdio.h>
+#include <stdlib.h>  // For abs() function
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,15 +37,14 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-// 局部FSM处理函数
-static void ProcessLocalEvents(void);
+uint8_t servo_id = 1;  // Default servo ID
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
-static void SlaveMCU_Init(void);
-static void SlaveMCU_MainLoop(void);
+static void Servo_MaxSpeed_Test_Init(void);
+static void Servo_MaxSpeed_Test_Loop(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -95,17 +81,19 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();  // RS485通信
-  MX_USART3_UART_Init();  // 舵机通信
+  MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+  // Initialize LED first
+  LED_Init();
+  LED_Flash(3);  // Flash 3 times to indicate system start
   
-  // 启动UART接收中断（初始化第一次接收）
+  printf("\n\n========================================\n");
+  printf("SERVO MAX SPEED TEST PROGRAM\n");
+  printf("LED Pin: PA1\n");
+  printf("========================================\n");
   
-  // 初始化Slave MCU所有模块
-  SlaveMCU_Init();
-  
-  printf("Slave MCU Started - Elevator Control System\n");
-  printf("Modules: Photo Sensor, Servo, Keyboard, RS485\n");
+  // Initialize servo for max speed test
+  Servo_MaxSpeed_Test_Init();
   
   /* USER CODE END 2 */
 
@@ -113,11 +101,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    Servo_MaxSpeed_Test_Loop();
+    HAL_Delay(10);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // 主循环处理
-    SlaveMCU_MainLoop();
   }
   /* USER CODE END 3 */
 }
@@ -164,215 +152,220 @@ void SystemClock_Config(void)
 /* USER CODE BEGIN 4 */
 
 /**
-  * @brief  初始化Slave MCU所有模块
+  * @brief  Initialize servo for max speed testing
   * @retval None
   */
-static void SlaveMCU_Init(void) {
-    // 初始化本地黑板
-    LocalBlackboard_Init();
+static void Servo_MaxSpeed_Test_Init(void) 
+{
+    printf("\nInitializing servo for max speed test...\n");
     
-    // 初始化RS485通信（从机模式）
-    RS485_SlaveAdapter_Init(&g_local_bb);
-    
-    // 初始化光电传感器
-    PhotoSensor_Init();
-    
-    // 初始化舵机控制
-    ServoControl_Init();
-    
-    // 初始化键盘
-    Keyboard_Init();
-    
-    // 初始化LED（状态指示）
-    LED_Init();
-    
-    // 设置初始状态
-    LocalBlackboard_SetState(ELEVATOR_IDLE);
-    LocalBlackboard_SetDoorState(DOOR_CLOSED);
-    LocalBlackboard_SetCurrentFloor(1);  // 默认1楼
-    
-    // 启动UART接收中断
-    static uint8_t rs485_rx_buffer;
-    static uint8_t servo_rx_buffer;
-    HAL_UART_Receive_IT(&huart2, &rs485_rx_buffer, 1);
-    HAL_UART_Receive_IT(&huart3, &servo_rx_buffer, 1);
-    
-    // 延时确保所有模块初始化完成
+    // Initialize servo communication
+    servo_init(&huart3);
     HAL_Delay(100);
+    
+    // Ping servo to check connection
+    printf("Pinging servo ID %d...\n", servo_id);
+    uint8_t ping_result = servo_ping(servo_id);
+    if (ping_result == 1) {
+        printf("Servo ID %d responded successfully!\n", servo_id);
+        LED_Flash(1);  // Flash once for successful connection
+    } else {
+        printf("WARNING: No response from servo ID %d, continuing anyway...\n", servo_id);
+        // Fast flash 5 times for connection warning
+        for(int i = 0; i < 5; i++) {
+            LED_Toggle();
+            HAL_Delay(100);
+        }
+        LED_Off();
+    }
+    
+    // Set angle limits to 0 for unlimited multi-turn control
+    printf("Setting angle limits to 0 for multi-turn mode...\n");
+    uint8_t min_limit[2] = {0x00, 0x00};
+    uint8_t max_limit[2] = {0x00, 0x00};
+    servo_write_reg(servo_id, 0x09, min_limit, 2);
+    HAL_Delay(50);
+    servo_write_reg(servo_id, 0x0B, max_limit, 2);
+    HAL_Delay(50);
+    
+    // Set operation mode to position servo mode (0x21 = 0)
+    printf("Setting operation mode to position servo (mode 0)...\n");
+    uint8_t mode = 0;
+    servo_write_reg(servo_id, 0x21, &mode, 1);
+    HAL_Delay(50);
+    
+    // Enable torque (address 0x28)
+    printf("Enabling servo torque...\n");
+    servo_set_torque_enable(servo_id, 1);
+    HAL_Delay(100);
+    
+    // Set maximum speed (32766 steps/s)
+    printf("Setting servo to MAXIMUM speed (32766 steps/s = 479 RPM)...\n");
+    servo_set_speed(servo_id, 32766);
+    HAL_Delay(100);
+    
+    // Set acceleration (address 0x29)
+    printf("Setting acceleration to 1000 steps/s^2...\n");
+    uint8_t accel = 10;
+    servo_write_reg(servo_id, 0x29, &accel, 1);
+    HAL_Delay(50);
+    
+    // Move to center position (0) first
+    printf("Moving to center position (0)...\n");
+    servo_set_position(servo_id, 0);
+    HAL_Delay(3000);
+    
+    printf("\n========================================\n");
+    printf("SERVO SPECIFICATIONS:\n");
+    printf("- Resolution: 4096 steps per 360 degrees\n");
+    printf("- Min resolution: 0.0879 degrees/step\n");
+    printf("- Max angle: 360 degrees (multi-turn supported)\n");
+    printf("- Max speed set: 32766 steps/s (479 RPM)\n");
+    printf("- Test rotation: 10 full turns = 40960 steps\n");
+    printf("========================================\n\n");
 }
 
 /**
-  * @brief  Slave MCU主循环
+  * @brief  Main test loop for max speed rotation
   * @retval None
   */
-static void SlaveMCU_MainLoop(void) {
-    // 更新时间戳
-    g_local_bb.timestamp = HAL_GetTick();
+static void Servo_MaxSpeed_Test_Loop(void) 
+{
+    static uint32_t last_test_time = 0;
+    static uint8_t test_state = 0;
+    static uint32_t rotation_start_time = 0;
+    static int16_t start_position = 0;
+    static uint32_t status_check_time = 0;
     
-    // 1. RS485通信处理（最高优先级）
-    RS485_SlaveAdapter_Handler();
-    
-    // 2. 处理本地事件
-    ProcessLocalEvents();
-    
-    // 3. 更新各模块
-    PhotoSensor_Update();      // 光电传感器更新
-    ServoControl_Update();     // 舵机控制更新
-    Keyboard_Handler();        // 键盘扫描处理
-    
-    // 4. RS485状态同步检查
-    RS485_Slave_CheckSync();
-    RS485_Slave_UpdateFromBlackboard();
-    
-    // 5. LED状态指示
-    static uint32_t led_update_time = 0;
-    if (HAL_GetTick() - led_update_time > 500) {
-        led_update_time = HAL_GetTick();
+    // During rotation, check status every 500ms
+    if ((test_state == 1 || test_state == 3 || test_state == 5) && 
+        (HAL_GetTick() - status_check_time >= 500)) {
         
-        // 根据状态控制LED
-        if (RS485_Slave_IsConnected()) {
-            LED_Toggle();  // 连接正常，闪烁
-        } else {
-            LED_On();      // 断开连接，常亮
+        // Blink LED during return to center (state 5)
+        if (test_state == 5) {
+            LED_Toggle();
         }
-    }
-    
-    // 6. 看门狗喂狗（如果启用）
-    // HAL_IWDG_Refresh(&hiwdg);
-}
-
-/**
-  * @brief  处理本地事件
-  * @retval None
-  */
-static void ProcessLocalEvents(void) {
-    LocalEvent_t event;
-    
-    // 处理所有待处理事件
-    while (LocalBlackboard_PopEvent(&event)) {
-        switch (event.type) {
-            case EVENT_OPEN_DOOR:
-                // 开门事件
-                if (!ServoControl_IsDoorMoving()) {
-                    ServoControl_OpenDoor();
-                }
-                break;
-                
-            case EVENT_CLOSE_DOOR:
-                // 关门事件
-                if (!ServoControl_IsDoorMoving()) {
-                    ServoControl_CloseDoor();
-                }
-                break;
-                
-            case EVENT_FLOOR_REACHED:
-                // 到达楼层事件
-                printf("Floor reached: %d\n", event.data);
-                
-                // 检查是否需要开门
-                if (g_local_bb.target_floor == event.data) {
-                    LocalBlackboard_PushEvent(EVENT_OPEN_DOOR, 0);
-                }
-                break;
-                
-            case EVENT_POSITION_ADJUST:
-                // 位置调整事件
-                printf("Position adjust: %d\n", event.data);
-                break;
-                
-            case EVENT_ERROR:
-                // 错误事件
-                printf("Error occurred: 0x%04X\n", event.data);
-                
-                // 错误处理
-                if (event.data == 0x400) {  // 紧急停止
-                    ServoControl_StopDoor();
-                    LED_On();  // 错误指示
-                }
-                break;
-                
-            case EVENT_SYNC_TIMEOUT:
-                // 同步超时
-                printf("RS485 sync timeout\n");
-                break;
-                
-            default:
-                break;
-        }
-    }
-    
-    // 检查门控制超时
-    static uint32_t door_check_time = 0;
-    if (HAL_GetTick() - door_check_time > 1000) {  // 每秒检查一次
-        door_check_time = HAL_GetTick();
         
-        // 如果门已开启超过5秒，自动关门
-        if (g_local_bb.door == DOOR_OPEN) {
-            if (HAL_GetTick() - g_local_bb.door_timeout_start > 5000) {
-                LocalBlackboard_PushEvent(EVENT_CLOSE_DOOR, 0);
-            }
+        uint16_t current_pos = servo_get_position(servo_id);
+        uint8_t is_moving = servo_is_moving(servo_id);
+        uint32_t elapsed = HAL_GetTick() - rotation_start_time;
+        
+        printf("  [%lu.%lu s] Pos: %d steps (%.1f deg), Moving: %s\n", 
+               elapsed/1000, (elapsed%1000)/100,
+               (int16_t)current_pos, 
+               (int16_t)current_pos * 0.0879,
+               is_moving ? "YES" : "NO");
+        
+        status_check_time = HAL_GetTick();
+        
+        // If stopped moving after 1 second, proceed to next test
+        if (!is_moving && elapsed > 1000) {
+            int16_t total_steps = (int16_t)current_pos - start_position;
+            float total_degrees = total_steps * 0.0879;
+            float total_rotations = total_degrees / 360.0;
+            
+            printf("  >>> Rotation completed!\n");
+            printf("  >>> Total: %d steps = %.1f degrees = %.2f rotations\n", 
+                   total_steps, total_degrees, total_rotations);
+            printf("  >>> Duration: %.2f seconds\n", elapsed/1000.0);
+            printf("  >>> Average speed: %.1f steps/s\n\n", 
+                   (float)abs(total_steps) / (elapsed/1000.0));
+            
+            LED_Flash(2);  // Flash twice to indicate test completion
+            HAL_Delay(2000);
+            test_state++;
+            last_test_time = HAL_GetTick();
         }
+        return;
     }
-}
-
-/**
-  * @brief  EXTI中断回调（光电传感器）
-  * @param  GPIO_Pin: 触发中断的引脚
-  * @retval None
-  */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    #if USE_NO_SIGNAL
-    if (GPIO_Pin == PHOTO_SENSOR_NO_Pin) {
-        PhotoSensor_ISR();
-    }
-    #endif
     
-    #if USE_NC_SIGNAL
-    if (GPIO_Pin == PHOTO_SENSOR_NC_Pin) {
-        PhotoSensor_ISR();
+    // Wait between major tests
+    if (test_state != 0 && HAL_GetTick() - last_test_time < 2000) {
+        return;
     }
-    #endif
-}
-
-/**
-  * @brief  UART接收中断回调
-  * @param  huart: UART句柄
-  * @retval None
-  */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    static uint8_t rs485_rx_byte;
-    static uint8_t servo_rx_byte;
     
-    if (huart == &huart2) {  // RS485
-        RS485_Slave_UART_RxCallback(rs485_rx_byte);
-        // 重新启动接收
-        HAL_UART_Receive_IT(&huart2, &rs485_rx_byte, 1);
-    } else if (huart == &huart3) {  // 舵机
-        ServoControl_UART_RxCallback(servo_rx_byte);
-        // 重新启动接收
-        HAL_UART_Receive_IT(&huart3, &servo_rx_byte, 1);
-    }
-}
-
-/**
-  * @brief  UART发送完成中断回调
-  * @param  huart: UART句柄
-  * @retval None
-  */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-    if (huart == &huart2) {  // RS485
-        RS485_Slave_UART_TxCompleteCallback();
-    }
-}
-
-/**
-  * @brief  UART错误中断回调
-  * @param  huart: UART句柄
-  * @retval None
-  */
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
-    if (huart == &huart2) {  // RS485
-        RS485_Slave_UART_ErrorCallback();
+    switch (test_state) {
+        case 0:
+            // Test 1: Maximum speed forward rotation
+            printf("\n========================================\n");
+            printf("[TEST 1] MAX SPEED FORWARD ROTATION\n");
+            printf("Target: +10 full rotations (40960 steps)\n");
+            printf("Expected time: ~1.25 seconds\n");
+            printf("========================================\n");
+            
+            start_position = servo_get_position(servo_id);
+            printf("Starting position: %d steps\n", start_position);
+            printf("Target position: %d steps\n", start_position + 40960);
+            printf("Executing...\n");
+            LED_On();  // LED on during forward rotation
+            
+            servo_set_position(servo_id, start_position + 40960);
+            rotation_start_time = HAL_GetTick();
+            test_state = 1;
+            break;
+            
+        case 1:
+            // Monitoring forward rotation (handled above)
+            break;
+            
+        case 2:
+            // Test 2: Maximum speed reverse rotation
+            printf("\n========================================\n");
+            printf("[TEST 2] MAX SPEED REVERSE ROTATION\n");
+            printf("Target: -10 full rotations (-40960 steps)\n");
+            printf("Expected time: ~1.25 seconds\n");
+            printf("========================================\n");
+            
+            start_position = servo_get_position(servo_id);
+            printf("Starting position: %d steps\n", start_position);
+            printf("Target position: %d steps\n", start_position - 40960);
+            printf("Executing...\n");
+            LED_Off();  // LED off during reverse rotation
+            
+            servo_set_position(servo_id, start_position - 40960);
+            rotation_start_time = HAL_GetTick();
+            test_state = 3;
+            break;
+            
+        case 3:
+            // Monitoring reverse rotation (handled above)
+            break;
+            
+        case 4:
+            // Test 3: Return to zero
+            printf("\n========================================\n");
+            printf("[TEST 3] RETURN TO CENTER (0)\n");
+            printf("========================================\n");
+            
+            start_position = servo_get_position(servo_id);
+            printf("Current position: %d steps\n", start_position);
+            printf("Returning to position 0...\n");
+            
+            // LED will blink during return (handled in status check above)
+            servo_set_position(servo_id, 0);
+            rotation_start_time = HAL_GetTick();
+            test_state = 5;
+            break;
+            
+        case 5:
+            // Monitoring return to center (handled above)
+            break;
+            
+        case 6:
+            // Test complete, wait and restart
+            LED_Off();  // Ensure LED is off
+            printf("\n========================================\n");
+            printf("TEST CYCLE COMPLETE!\n");
+            printf("Waiting 5 seconds before restart...\n");
+            printf("========================================\n\n");
+            
+            HAL_Delay(5000);
+            test_state = 0;
+            break;
+            
+        default:
+            test_state = 0;
+            break;
     }
 }
 

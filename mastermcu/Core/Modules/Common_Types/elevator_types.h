@@ -138,9 +138,13 @@ typedef enum {
 #define IS_VALID_FLOOR(floor)   ((floor) < MAX_FLOORS)
 #define IS_VALID_DIRECTION(dir) ((dir) >= DIR_IDLE && (dir) <= DIR_DOWN)
 
-// 位操作
+// 位操作 - 避免与STM32 HAL宏冲突
+#ifndef SET_BIT
 #define SET_BIT(value, bit)     ((value) |= (1U << (bit)))
+#endif
+#ifndef CLEAR_BIT
 #define CLEAR_BIT(value, bit)   ((value) &= ~(1U << (bit)))
+#endif
 #define CHECK_BIT(value, bit)   (((value) >> (bit)) & 1U)
 #define TOGGLE_BIT(value, bit)  ((value) ^= (1U << (bit)))
 

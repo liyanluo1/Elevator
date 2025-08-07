@@ -2,7 +2,7 @@
 #define __MOTOR_FSM_H
 
 #include "motor_advanced.h"
-#include "blackboard.h"
+#include "../../Common_Types/elevator_types.h"  // For Direction_t
 #include <stdbool.h>
 
 // 电机状态枚举

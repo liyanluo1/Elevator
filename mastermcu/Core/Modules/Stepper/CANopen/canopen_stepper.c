@@ -17,8 +17,8 @@ void CANopen_Stepper_Init(CANopen_Stepper_t* stepper, uint8_t node_id) {
     memset(stepper, 0, sizeof(CANopen_Stepper_t));
     
     stepper->node_id = node_id;
-    stepper->rx_cob_id = 0x600 + node_id;
-    stepper->tx_cob_id = 0x580 + node_id;
+    stepper->tx_cob_id = 0x600 + node_id;  // SDO请求: 主站->电机 (0x601)
+    stepper->rx_cob_id = 0x580 + node_id;  // SDO响应: 电机->主站 (0x581)
     
     stepper->state = STATE_NOT_READY;
     stepper->operation_mode = MODE_NO_MODE;
@@ -65,7 +65,7 @@ uint8_t CANopen_SDO_Write(CANopen_Stepper_t* stepper, uint16_t index, uint8_t su
     }
     
     stepper->last_sdo_time = HAL_GetTick();
-    return CAN1_Send_Num(stepper->rx_cob_id, tx_data);
+    return CAN1_Send_Num(stepper->tx_cob_id, tx_data);  // 使用tx_cob_id发送SDO请求
 }
 
 // SDO读取
@@ -78,7 +78,7 @@ uint8_t CANopen_SDO_Read(CANopen_Stepper_t* stepper, uint16_t index, uint8_t sub
     tx_data[3] = subindex;
     
     stepper->last_sdo_time = HAL_GetTick();
-    return CAN1_Send_Num(stepper->rx_cob_id, tx_data);
+    return CAN1_Send_Num(stepper->tx_cob_id, tx_data);  // 使用tx_cob_id发送SDO请求
 }
 
 // 设置DS402状态机状态
@@ -379,7 +379,7 @@ uint16_t CANopen_GetStatusWord(CANopen_Stepper_t* stepper) {
 // 处理接收到的CAN消息
 void CANopen_ProcessRxMessage(CANopen_Stepper_t* stepper, uint32_t rx_id, uint8_t* data) {
     // 检查是否是SDO响应
-    if (rx_id == stepper->tx_cob_id) {
+    if (rx_id == stepper->rx_cob_id) {  // 从rx_cob_id接收SDO响应
         uint8_t cs = data[0];
         uint16_t index = data[1] | (data[2] << 8);
         uint8_t subindex = data[3];
@@ -443,6 +443,75 @@ const char* CANopen_GetStateName(DS402State_t state) {
         case STATE_FAULT: return "Fault";
         default: return "Unknown";
     }
+}
+
+// NMT 功能实现
+uint8_t CANopen_NMT_PreOperational(uint8_t node_id) {
+    uint8_t nmt_data[2] = {0x80, node_id};  // 进入预操作状态
+    return CAN1_Send_Frame(0x000, nmt_data, 2);
+}
+
+uint8_t CANopen_NMT_StartNode(uint8_t node_id) {
+    uint8_t nmt_data[2] = {0x01, node_id};  // 启动节点
+    return CAN1_Send_Frame(0x000, nmt_data, 2);
+}
+
+// 力矩模式控制实现
+uint8_t CANopen_SetTorqueMode(CANopen_Stepper_t* stepper) {
+    uint8_t mode = MODE_PROFILE_TORQUE;  // 0x04
+    return CANopen_SDO_Write(stepper, OD_OPERATION_MODE, 0x00, &mode, 1);
+}
+
+// 力矩模式状态机切换
+uint8_t CANopen_ReadyToSwitchOn(CANopen_Stepper_t* stepper) {
+    uint16_t control_word = 0x0006;  // 伺服准备好
+    return CANopen_SDO_Write(stepper, OD_CONTROL_WORD, 0x00, &control_word, 2);
+}
+
+uint8_t CANopen_SwitchedOn(CANopen_Stepper_t* stepper) {
+    uint16_t control_word = 0x0007;  // 等待打开伺服使能
+    return CANopen_SDO_Write(stepper, OD_CONTROL_WORD, 0x00, &control_word, 2);
+}
+
+uint8_t CANopen_OperationEnable(CANopen_Stepper_t* stepper) {
+    uint16_t control_word = 0x000F;  // 伺服运行
+    return CANopen_SDO_Write(stepper, OD_CONTROL_WORD, 0x00, &control_word, 2);
+}
+
+uint8_t CANopen_EnableTorqueMode(CANopen_Stepper_t* stepper) {
+    uint8_t result = 0;
+    uint16_t control_word;
+    uint8_t torque_submode = 3;  // 恒力矩子模式
+    
+    // 步骤1: 设置力矩模式
+    result |= CANopen_SetTorqueMode(stepper);
+    HAL_Delay(10);
+    
+    // 步骤2: 设置恒力矩子模式 (0x2158-01 = 3)
+    result |= CANopen_SDO_Write(stepper, OD_TORQUE_SUBMODE, 0x01, &torque_submode, 1);
+    HAL_Delay(10);
+    
+    // 步骤3: 连续写入控制字进入Operation Enabled
+    // 0x06 -> 0x07 -> 0x0F (根据文档要求连续写入)
+    control_word = 0x0006;
+    result |= CANopen_SDO_Write(stepper, OD_CONTROL_WORD, 0x00, &control_word, 2);
+    HAL_Delay(10);
+    
+    control_word = 0x0007;
+    result |= CANopen_SDO_Write(stepper, OD_CONTROL_WORD, 0x00, &control_word, 2);
+    HAL_Delay(10);
+    
+    control_word = 0x000F;
+    result |= CANopen_SDO_Write(stepper, OD_CONTROL_WORD, 0x00, &control_word, 2);
+    
+    return result;
+}
+
+uint8_t CANopen_SetTargetTorque(CANopen_Stepper_t* stepper, int16_t torque) {
+    // 力矩值范围: -255到+255 (符号表示方向)
+    if (torque > 255) torque = 255;
+    if (torque < -255) torque = -255;
+    return CANopen_SDO_Write(stepper, OD_TARGET_TORQUE, 0x00, &torque, 2);
 }
 
 // 获取模式名称
