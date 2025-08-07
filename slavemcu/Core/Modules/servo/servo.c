@@ -1,5 +1,6 @@
 #include "servo.h"
 #include <string.h>  // 用于memcpy
+#include <stdio.h>   // 用于printf调试
 
 static UART_HandleTypeDef *servo_uart;  // USART句柄
 
@@ -18,8 +19,8 @@ static void send_packet(uint8_t *packet, uint8_t len) {
 }
 
 // 函数：接收包（简单阻塞式，假设响应快速；实际可加超时/DMA）
-static uint8_t receive_packet(uint8_t *rx_packet, uint8_t expected_len) {
-    return HAL_UART_Receive(servo_uart, rx_packet, expected_len, 100);  // 返回实际接收长度，超时100ms
+static HAL_StatusTypeDef receive_packet(uint8_t *rx_packet, uint8_t expected_len) {
+    return HAL_UART_Receive(servo_uart, rx_packet, expected_len, 100);  // 返回状态，超时100ms
 }
 
 // 初始化（默认波特率1M，无需设置寄存器0x06，因为初始值0=1M）
@@ -36,7 +37,7 @@ uint8_t servo_ping(uint8_t id) {
     send_packet(packet, 6);
 
     uint8_t rx_packet[6];
-    if (receive_packet(rx_packet, 6) == 6 &&
+    if (receive_packet(rx_packet, 6) == HAL_OK &&
         rx_packet[0] == 0xFF && rx_packet[1] == 0xFF && rx_packet[2] == id &&
         rx_packet[3] == 0x02 && rx_packet[4] == 0x00) {
         return 1;  // 成功
@@ -66,19 +67,22 @@ void servo_write_reg(uint8_t id, uint8_t reg_addr, uint8_t *data, uint8_t data_l
     }
 }
 
-// 读寄存器
+// 读寄存器  
 uint8_t servo_read_reg(uint8_t id, uint8_t reg_addr, uint8_t data_len, uint8_t *rx_data) {
-    uint8_t packet[7] = {0xFF, 0xFF, id, 0x04, SERVO_INST_READ, reg_addr, data_len};
-    packet[6] = calculate_checksum(packet, 7);
-    send_packet(packet, 7);
+    uint8_t packet[8] = {0xFF, 0xFF, id, 0x04, SERVO_INST_READ, reg_addr, data_len, 0x00};
+    packet[7] = calculate_checksum(packet, 8);
+    send_packet(packet, 8);
 
-    uint8_t expected_len = data_len + 5;  // FF FF ID Len Error Params... Checksum
+    uint8_t expected_len = data_len + 6;  // FF FF ID Len Error Params... Checksum
     uint8_t rx_packet[256];
-    if (receive_packet(rx_packet, expected_len) == expected_len &&
-        rx_packet[0] == 0xFF && rx_packet[1] == 0xFF && rx_packet[2] == id &&
-        rx_packet[3] == data_len + 2 && rx_packet[4] == 0x00) {
-        memcpy(rx_data, &rx_packet[5], data_len);
-        return 1;  // 成功
+    
+    HAL_StatusTypeDef status = receive_packet(rx_packet, expected_len);
+    if (status == HAL_OK) {
+        if (rx_packet[0] == 0xFF && rx_packet[1] == 0xFF && rx_packet[2] == id &&
+            rx_packet[3] == data_len + 2 && rx_packet[4] == 0x00) {
+            memcpy(rx_data, &rx_packet[5], data_len);
+            return 1;  // 成功
+        }
     }
     return 0;
 }
@@ -112,6 +116,39 @@ uint16_t servo_get_position(uint8_t id) {
         return (rx_data[1] << 8) | rx_data[0];  // 高<<8 | 低
     }
     return 0;  // 错误返回0
+}
+
+// 获取当前位置（调试版）
+uint16_t servo_get_position_debug(uint8_t id) {
+    printf("[POS DEBUG] Testing different read methods:\r\n");
+    
+    // 方法1：读取2字节
+    uint8_t rx_data[2];
+    if (servo_read_reg(id, 0x38, 2, rx_data)) {
+        uint16_t pos = (rx_data[1] << 8) | rx_data[0];
+        printf("  Method 1 (2-byte): Low=0x%02X, High=0x%02X, Pos=%d\r\n", 
+               rx_data[0], rx_data[1], pos);
+    } else {
+        printf("  Method 1 (2-byte): FAILED\r\n");
+    }
+    
+    // 方法2：分别读取
+    uint8_t low = 0, high = 0;
+    if (servo_read_reg(id, 0x38, 1, &low)) {
+        printf("  Method 2 (0x38): 0x%02X\r\n", low);
+    } else {
+        printf("  Method 2 (0x38): FAILED\r\n");
+    }
+    
+    if (servo_read_reg(id, 0x39, 1, &high)) {
+        printf("  Method 2 (0x39): 0x%02X\r\n", high);
+        uint16_t pos = (high << 8) | low;
+        printf("  Method 2 combined: %d\r\n", pos);
+    } else {
+        printf("  Method 2 (0x39): FAILED\r\n");
+    }
+    
+    return 0;
 }
 
 // 检查是否移动

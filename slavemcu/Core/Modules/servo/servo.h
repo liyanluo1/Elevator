@@ -72,6 +72,7 @@ void servo_set_torque_enable(uint8_t id, uint8_t enable);  // 扭矩开关
 void servo_set_speed(uint8_t id, int16_t speed);  // 设置速度 (-32766~32766)
 void servo_set_position(uint8_t id, int16_t position);  // 设置目标位置 (-32766~32766)
 uint16_t servo_get_position(uint8_t id);  // 获取当前位置
+uint16_t servo_get_position_debug(uint8_t id);  // 获取当前位置（调试版）
 uint8_t servo_is_moving(uint8_t id);  // 检查是否在移动
 void servo_demo_max_speed_360(uint8_t id);  // Demo: 最大速度转360度
 
