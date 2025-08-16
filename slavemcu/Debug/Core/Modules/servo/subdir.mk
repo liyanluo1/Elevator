@@ -5,13 +5,19 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
-../Core/Modules/servo/servo.c 
+../Core/Modules/servo/servo.c \
+../Core/Modules/servo/servo_control.c \
+../Core/Modules/servo/servo_fsm.c 
 
 OBJS += \
-./Core/Modules/servo/servo.o 
+./Core/Modules/servo/servo.o \
+./Core/Modules/servo/servo_control.o \
+./Core/Modules/servo/servo_fsm.o 
 
 C_DEPS += \
-./Core/Modules/servo/servo.d 
+./Core/Modules/servo/servo.d \
+./Core/Modules/servo/servo_control.d \
+./Core/Modules/servo/servo_fsm.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
@@ -21,7 +27,7 @@ Core/Modules/servo/%.o Core/Modules/servo/%.su Core/Modules/servo/%.cyclo: ../Co
 clean: clean-Core-2f-Modules-2f-servo
 
 clean-Core-2f-Modules-2f-servo:
-	-$(RM) ./Core/Modules/servo/servo.cyclo ./Core/Modules/servo/servo.d ./Core/Modules/servo/servo.o ./Core/Modules/servo/servo.su
+	-$(RM) ./Core/Modules/servo/servo.cyclo ./Core/Modules/servo/servo.d ./Core/Modules/servo/servo.o ./Core/Modules/servo/servo.su ./Core/Modules/servo/servo_control.cyclo ./Core/Modules/servo/servo_control.d ./Core/Modules/servo/servo_control.o ./Core/Modules/servo/servo_control.su ./Core/Modules/servo/servo_fsm.cyclo ./Core/Modules/servo/servo_fsm.d ./Core/Modules/servo/servo_fsm.o ./Core/Modules/servo/servo_fsm.su
 
 .PHONY: clean-Core-2f-Modules-2f-servo
 

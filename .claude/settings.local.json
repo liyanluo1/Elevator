@@ -19,7 +19,12 @@
       "Bash(done)",
       "Bash(ls:*)",
       "Bash(.disable_modules_for_servo_test.bat)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(echo:*)",
+      "Bash(make:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(tree:*)"
     ],
     "deny": []
   }

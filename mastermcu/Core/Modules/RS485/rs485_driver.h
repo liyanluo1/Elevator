@@ -1,0 +1,11 @@
+#ifndef __RS485_DRIVER_INTERNAL_H__
+#define __RS485_DRIVER_INTERNAL_H__
+
+#include <stdint.h>
+#include "stm32f4xx_hal.h"
+#include "rs485_config.h"
+
+/* Internal helper functions */
+uint16_t rs485_get_dma_rx_count(UART_HandleTypeDef *huart);
+
+#endif /* __RS485_DRIVER_INTERNAL_H__ */

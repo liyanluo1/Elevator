@@ -13,6 +13,11 @@ RM := rm -rf
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
 -include Core/Modules/servo/subdir.mk
+-include Core/Modules/keyboard/subdir.mk
+-include Core/Modules/RS485_Common/Utils/subdir.mk
+-include Core/Modules/RS485_Common/Protocol/subdir.mk
+-include Core/Modules/RS485_Common/Core/subdir.mk
+-include Core/Modules/Local_RS485/subdir.mk
 -include Core/Modules/LED/subdir.mk
 -include objects.mk
 

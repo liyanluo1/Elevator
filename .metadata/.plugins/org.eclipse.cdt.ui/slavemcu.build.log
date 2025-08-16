@@ -1,10 +1,151 @@
-02:38:26 **** Incremental Build of configuration Debug for project slavemcu ****
+22:00:18 **** Incremental Build of configuration Debug for project slavemcu ****
 make -j8 all 
-arm-none-eabi-size  slavemcu.elf 
-   text	   data	    bss	    dec	    hex	filename
-  18804	    108	   2004	  20916	   51b4	slavemcu.elf
-Finished building: default.size.stdout
- 
+arm-none-eabi-gcc "../Core/Modules/RS485_Common/Utils/rs485_crc.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/RS485_Common/Utils/rs485_crc.d" -MT"Core/Modules/RS485_Common/Utils/rs485_crc.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Modules/RS485_Common/Utils/rs485_crc.o"
+arm-none-eabi-gcc "../Core/Modules/RS485_Common/Protocol/rs485_protocol.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/RS485_Common/Protocol/rs485_protocol.d" -MT"Core/Modules/RS485_Common/Protocol/rs485_protocol.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Modules/RS485_Common/Protocol/rs485_protocol.o"
+arm-none-eabi-gcc "../Core/Modules/RS485_Common/Core/rs485_core.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/RS485_Common/Core/rs485_core.d" -MT"Core/Modules/RS485_Common/Core/rs485_core.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Modules/RS485_Common/Core/rs485_core.o"
+arm-none-eabi-gcc "../Core/Modules/Local_RS485/rs485_slave_adapter.c" -mcpu=cortex-m3 -std=gnu11 -g3 -DDEBUG -DUSE_HAL_DRIVER -DSTM32F103xB -c -I../Core/Inc -I../Drivers/STM32F1xx_HAL_Driver/Inc/Legacy -I../Drivers/STM32F1xx_HAL_Driver/Inc -I../Drivers/CMSIS/Device/ST/STM32F1xx/Include -I../Drivers/CMSIS/Include -O0 -ffunction-sections -fdata-sections -Wall -fstack-usage -fcyclomatic-complexity -MMD -MP -MF"Core/Modules/Local_RS485/rs485_slave_adapter.d" -MT"Core/Modules/Local_RS485/rs485_slave_adapter.o" --specs=nano.specs -mfloat-abi=soft -mthumb -o "Core/Modules/Local_RS485/rs485_slave_adapter.o"
+../Core/Modules/RS485_Common/Utils/rs485_crc.c: In function 'CRC16_InitTable':
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:8:22: error: 'NULL' undeclared (first use in this function)
+    8 |     if (crc_table == NULL || crc_table->initialized) {
+      |                      ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:2:1: note: 'NULL' is defined in header '<stddef.h>'; did you forget to '#include <stddef.h>'?
+    1 | #include "rs485_crc.h"
+  +++ |+#include <stddef.h>
+    2 | 
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:8:22: note: each undeclared identifier is reported only once for each function it appears in
+    8 |     if (crc_table == NULL || crc_table->initialized) {
+      |                      ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c: In function 'CRC16_Calculate':
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:29:17: error: 'NULL' undeclared (first use in this function)
+   29 |     if (data == NULL || length == 0) {
+      |                 ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:29:17: note: 'NULL' is defined in header '<stddef.h>'; did you forget to '#include <stddef.h>'?
+../Core/Modules/RS485_Common/Utils/rs485_crc.c: In function 'CRC16_CalculateWithTable':
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:52:22: error: 'NULL' undeclared (first use in this function)
+   52 |     if (crc_table == NULL || data == NULL || length == 0) {
+      |                      ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:52:22: note: 'NULL' is defined in header '<stddef.h>'; did you forget to '#include <stddef.h>'?
+../Core/Modules/RS485_Common/Utils/rs485_crc.c: In function 'CRC16_Verify':
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:73:17: error: 'NULL' undeclared (first use in this function)
+   73 |     if (data == NULL || length == 0) {
+      |                 ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:73:17: note: 'NULL' is defined in header '<stddef.h>'; did you forget to '#include <stddef.h>'?
+../Core/Modules/RS485_Common/Utils/rs485_crc.c: In function 'CRC16_Append':
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:83:19: error: 'NULL' undeclared (first use in this function)
+   83 |     if (buffer == NULL || data_length == 0) {
+      |                   ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:83:19: note: 'NULL' is defined in header '<stddef.h>'; did you forget to '#include <stddef.h>'?
+../Core/Modules/RS485_Common/Utils/rs485_crc.c: In function 'CRC16_Extract':
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:96:19: error: 'NULL' undeclared (first use in this function)
+   96 |     if (buffer == NULL) {
+      |                   ^~~~
+../Core/Modules/RS485_Common/Utils/rs485_crc.c:96:19: note: 'NULL' is defined in header '<stddef.h>'; did you forget to '#include <stddef.h>'?
+make: *** [Core/Modules/RS485_Common/Utils/subdir.mk:19: Core/Modules/RS485_Common/Utils/rs485_crc.o] Error 1
+make: *** Waiting for unfinished jobs....
+In file included from ../Core/Modules/RS485_Common/Protocol/rs485_protocol.c:1:
+../Core/Modules/RS485_Common/Protocol/rs485_protocol.h:4:10: fatal error: rs485_base.h: No such file or directory
+    4 | #include "rs485_base.h"
+      |          ^~~~~~~~~~~~~~
+compilation terminated.
+make: *** [Core/Modules/RS485_Common/Protocol/subdir.mk:19: Core/Modules/RS485_Common/Protocol/rs485_protocol.o] Error 1
+In file included from ../Core/Modules/RS485_Common/Core/rs485_core.h:4,
+                 from ../Core/Modules/RS485_Common/Core/rs485_core.c:1:
+../Core/Modules/RS485_Common/Core/rs485_base.h:31:5: error: unknown type name 'GPIO_TypeDef'
+   31 |     GPIO_TypeDef* de_gpio_port;
+      |     ^~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_base.h:35:5: error: unknown type name 'UART_HandleTypeDef'
+   35 |     UART_HandleTypeDef* uart_handle;
+      |     ^~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c: In function 'RS485_Core_Init':
+../Core/Modules/RS485_Common/Core/rs485_core.c:31:5: error: unknown type name 'GPIO_InitTypeDef'
+   31 |     GPIO_InitTypeDef GPIO_InitStruct = {0};
+      |     ^~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:32:20: error: request for member 'Pin' in something not a structure or union
+   32 |     GPIO_InitStruct.Pin = core->config.de_pin;
+      |                    ^
+../Core/Modules/RS485_Common/Core/rs485_core.c:33:20: error: request for member 'Mode' in something not a structure or union
+   33 |     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+      |                    ^
+../Core/Modules/RS485_Common/Core/rs485_core.c:33:28: error: 'GPIO_MODE_OUTPUT_PP' undeclared (first use in this function)
+   33 |     GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+      |                            ^~~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:33:28: note: each undeclared identifier is reported only once for each function it appears in
+../Core/Modules/RS485_Common/Core/rs485_core.c:34:20: error: request for member 'Pull' in something not a structure or union
+   34 |     GPIO_InitStruct.Pull = GPIO_NOPULL;
+      |                    ^
+../Core/Modules/RS485_Common/Core/rs485_core.c:34:28: error: 'GPIO_NOPULL' undeclared (first use in this function)
+   34 |     GPIO_InitStruct.Pull = GPIO_NOPULL;
+      |                            ^~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:35:20: error: request for member 'Speed' in something not a structure or union
+   35 |     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+      |                    ^
+../Core/Modules/RS485_Common/Core/rs485_core.c:35:29: error: 'GPIO_SPEED_FREQ_HIGH' undeclared (first use in this function)
+   35 |     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+      |                             ^~~~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:36:5: warning: implicit declaration of function 'HAL_GPIO_Init' [-Wimplicit-function-declaration]
+   36 |     HAL_GPIO_Init(core->config.de_gpio_port, &GPIO_InitStruct);
+      |     ^~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:50:5: warning: implicit declaration of function 'HAL_UART_Receive_IT' [-Wimplicit-function-declaration]
+   50 |     HAL_UART_Receive_IT(core->config.uart_handle, &core->uart_rx_byte, 1);
+      |     ^~~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c: In function 'RS485_Core_DeInit':
+../Core/Modules/RS485_Common/Core/rs485_core.c:60:5: warning: implicit declaration of function 'HAL_UART_AbortReceive_IT' [-Wimplicit-function-declaration]
+   60 |     HAL_UART_AbortReceive_IT(core->config.uart_handle);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:61:5: warning: implicit declaration of function 'HAL_UART_AbortTransmit_IT' [-Wimplicit-function-declaration]
+   61 |     HAL_UART_AbortTransmit_IT(core->config.uart_handle);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:64:5: warning: implicit declaration of function 'HAL_GPIO_DeInit' [-Wimplicit-function-declaration]
+   64 |     HAL_GPIO_DeInit(core->config.de_gpio_port, core->config.de_pin);
+      |     ^~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c: In function 'RS485_Core_Handler':
+../Core/Modules/RS485_Common/Core/rs485_core.c:74:29: warning: implicit declaration of function 'HAL_GetTick' [-Wimplicit-function-declaration]
+   74 |     uint32_t current_time = HAL_GetTick();
+      |                             ^~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c: In function 'RS485_Core_SetMode':
+../Core/Modules/RS485_Common/Core/rs485_core.c:283:9: warning: implicit declaration of function 'HAL_GPIO_WritePin' [-Wimplicit-function-declaration]
+  283 |         HAL_GPIO_WritePin(core->config.de_gpio_port, core->config.de_pin, GPIO_PIN_SET);
+      |         ^~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:283:75: error: 'GPIO_PIN_SET' undeclared (first use in this function)
+  283 |         HAL_GPIO_WritePin(core->config.de_gpio_port, core->config.de_pin, GPIO_PIN_SET);
+      |                                                                           ^~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:285:75: error: 'GPIO_PIN_RESET' undeclared (first use in this function)
+  285 |         HAL_GPIO_WritePin(core->config.de_gpio_port, core->config.de_pin, GPIO_PIN_RESET);
+      |                                                                           ^~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:287:5: warning: implicit declaration of function 'HAL_Delay' [-Wimplicit-function-declaration]
+  287 |     HAL_Delay(1); // 模式切换延时
+      |     ^~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c: In function 'RS485_Core_CheckHeartbeat':
+../Core/Modules/RS485_Common/Core/rs485_core.c:437:17: warning: variable 'heartbeat_data' set but not used [-Wunused-but-set-variable]
+  437 |         uint8_t heartbeat_data[4];
+      |                 ^~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c: In function 'RS485_Core_TransmitFrame':
+../Core/Modules/RS485_Common/Core/rs485_core.c:460:5: error: unknown type name 'HAL_StatusTypeDef'
+  460 |     HAL_StatusTypeDef status = HAL_UART_Transmit_IT(core->config.uart_handle,
+      |     ^~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:460:32: warning: implicit declaration of function 'HAL_UART_Transmit_IT' [-Wimplicit-function-declaration]
+  460 |     HAL_StatusTypeDef status = HAL_UART_Transmit_IT(core->config.uart_handle,
+      |                                ^~~~~~~~~~~~~~~~~~~~
+../Core/Modules/RS485_Common/Core/rs485_core.c:464:19: error: 'HAL_OK' undeclared (first use in this function)
+  464 |     if (status == HAL_OK) {
+      |                   ^~~~~~
+make: *** [Core/Modules/RS485_Common/Core/subdir.mk:19: Core/Modules/RS485_Common/Core/rs485_core.o] Error 1
+In file included from ../Core/Modules/Local_RS485/../RS485_Common/Core/rs485_core.h:4,
+                 from ../Core/Modules/Local_RS485/rs485_slave_adapter.h:4,
+                 from ../Core/Modules/Local_RS485/rs485_slave_adapter.c:1:
+../Core/Modules/Local_RS485/../RS485_Common/Core/rs485_base.h:31:5: error: unknown type name 'GPIO_TypeDef'
+   31 |     GPIO_TypeDef* de_gpio_port;
+      |     ^~~~~~~~~~~~
+../Core/Modules/Local_RS485/../RS485_Common/Core/rs485_base.h:35:5: error: unknown type name 'UART_HandleTypeDef'
+   35 |     UART_HandleTypeDef* uart_handle;
+      |     ^~~~~~~~~~~~~~~~~~
+In file included from ../Core/Modules/Local_RS485/rs485_slave_adapter.h:5:
+../Core/Modules/Local_RS485/../RS485_Common/Protocol/rs485_protocol.h:4:10: fatal error: rs485_base.h: No such file or directory
+    4 | #include "rs485_base.h"
+      |          ^~~~~~~~~~~~~~
+compilation terminated.
+make: *** [Core/Modules/Local_RS485/subdir.mk:19: Core/Modules/Local_RS485/rs485_slave_adapter.o] Error 1
+"make -j8 all" terminated with exit code 2. Build might be incomplete.
 
-02:38:28 Build Finished. 0 errors, 0 warnings. (took 1s.680ms)
+22:00:22 Build Failed. 29 errors, 10 warnings. (took 3s.508ms)
 

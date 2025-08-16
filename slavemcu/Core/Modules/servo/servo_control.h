@@ -2,7 +2,6 @@
 #define SERVO_CONTROL_H
 
 #include "servo.h"
-#include "servo_fsm.h"
 #include <stdint.h>
 
 // 控制参数
@@ -17,7 +16,6 @@ typedef struct {
     int16_t last_error;         // 上次误差
     int16_t error_sum;          // 误差累积（用于积分）
     uint16_t speed;             // 运行速度
-    ServoFsm_t fsm;             // 状态机
     uint32_t move_start_time;   // 开始移动时间
     uint8_t is_enabled;         // 是否使能
 } ServoControl_t;
@@ -44,6 +42,7 @@ float ServoControl_GetProgress(ServoControl_t *ctrl);
 void ServoControl_EmergencyStop(ServoControl_t *ctrl);
 
 // 高级控制函数
+void ServoControl_Calibrate(ServoControl_t *ctrl);
 void ServoControl_MoveRelative(ServoControl_t *ctrl, int16_t steps);
 void ServoControl_MoveToAngle(ServoControl_t *ctrl, float angle);
 void ServoControl_RotateContinuous(ServoControl_t *ctrl, float degrees);
@@ -51,5 +50,25 @@ void ServoControl_Home(ServoControl_t *ctrl);
 
 // 调试函数
 void ServoControl_PrintStatus(ServoControl_t *ctrl);
+
+// 门控专用函数（222度应用，反转映射）
+#define DOOR_CLOSED_POS  2526   // 关门位置（222度）
+#define DOOR_OPEN_POS    0      // 开门位置（0度）
+
+static inline void ServoControl_OpenDoor(ServoControl_t *ctrl) {
+    ServoControl_SetTargetPosition(ctrl, DOOR_OPEN_POS);
+}
+
+static inline void ServoControl_CloseDoor(ServoControl_t *ctrl) {
+    ServoControl_SetTargetPosition(ctrl, DOOR_CLOSED_POS);
+}
+
+static inline uint8_t ServoControl_IsDoorOpen(ServoControl_t *ctrl) {
+    return (ctrl->current_position > (DOOR_OPEN_POS - 50));  // 允许50步误差
+}
+
+static inline uint8_t ServoControl_IsDoorClosed(ServoControl_t *ctrl) {
+    return (ctrl->current_position < 50);  // 允许50步误差
+}
 
 #endif /* SERVO_CONTROL_H */

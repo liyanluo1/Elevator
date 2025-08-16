@@ -28,6 +28,9 @@ void servo_init(UART_HandleTypeDef *huart) {
     servo_uart = huart;
     // 可在此PING舵机确认连接
     servo_ping(SERVO_DEFAULT_ID);
+    
+    // 设置默认最大速度
+    servo_set_speed(SERVO_DEFAULT_ID, 4095);  // 最大速度
 }
 
 // PING

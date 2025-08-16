@@ -1,0 +1,16 @@
+../Core/Modules/servo/servo_control.c:19:6:ServoControl_Init	1
+../Core/Modules/servo/servo_control.c:44:6:ServoControl_SetPID	1
+../Core/Modules/servo/servo_control.c:55:6:ServoControl_Enable	1
+../Core/Modules/servo/servo_control.c:65:6:ServoControl_Disable	1
+../Core/Modules/servo/servo_control.c:75:6:ServoControl_SetTargetPosition	1
+../Core/Modules/servo/servo_control.c:90:6:ServoControl_SetSpeed	1
+../Core/Modules/servo/servo_control.c:98:16:calculate_pid_output	8
+../Core/Modules/servo/servo_control.c:134:6:ServoControl_Update	10
+../Core/Modules/servo/servo_control.c:198:9:ServoControl_IsAtTarget	1
+../Core/Modules/servo/servo_control.c:205:7:ServoControl_GetProgress	7
+../Core/Modules/servo/servo_control.c:234:6:ServoControl_EmergencyStop	1
+../Core/Modules/servo/servo_control.c:246:6:ServoControl_MoveRelative	1
+../Core/Modules/servo/servo_control.c:254:6:ServoControl_MoveToAngle	1
+../Core/Modules/servo/servo_control.c:263:6:ServoControl_RotateContinuous	1
+../Core/Modules/servo/servo_control.c:271:6:ServoControl_Home	1
+../Core/Modules/servo/servo_control.c:278:6:ServoControl_PrintStatus	1

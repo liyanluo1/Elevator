@@ -1,0 +1,5 @@
+../Core/Src/main_servo_debug.c:37:5:main	24	static
+../Core/Src/main_servo_debug.c:130:13:Servo_Debug_Test	16	static
+../Core/Src/main_servo_debug.c:158:13:Servo_Basic_Test	32	static
+../Core/Src/main_servo_debug.c:208:6:SystemClock_Config	72	static
+../Core/Src/main_servo_debug.c:238:6:Error_Handler	4	static,ignoring_inline_asm

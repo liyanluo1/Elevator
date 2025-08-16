@@ -2,27 +2,43 @@
 /**
   ******************************************************************************
   * @file           : main.c
-  * @brief          : Servo 270-degree rotation test with angle and error tracking
+  * @brief          : Door control state machine test
   ******************************************************************************
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "../Modules/servo/servo.h"
-#include "../Modules/servo/servo_control.h"
-#include "../Modules/LED/LED.h"
+#include "../Modules/servo/door_control.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
 /* Private variables ---------------------------------------------------------*/
+
 /* USER CODE BEGIN PV */
-ServoControl_t servo_ctrl;  // 舵机控制器
-uint8_t servo_id = 1;       // 舵机ID
+#define SERVO_ID 1  // 舵机ID
+DoorControl_t door;  // 门控对象
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -31,147 +47,131 @@ void SystemClock_Config(void);
 
 /* USER CODE END PFP */
 
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
 /**
   * @brief  The application entry point.
   * @retval int
   */
 int main(void)
 {
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
   /* MCU Configuration--------------------------------------------------------*/
+
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART1_UART_Init();  // Initialize USART1 for debug output
-  MX_USART3_UART_Init();  // Initialize USART3 for servo
-  
+  MX_DMA_Init();
+  MX_USART3_UART_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  // Initialize LED
-  LED_Init();
-  LED_Flash(3);  // Flash 3 times to indicate system start
   
-  printf("\r\n========================================\r\n");
-  printf("SERVO 270-DEGREE ROTATION TEST\r\n");
-  printf("========================================\r\n\r\n");
-  
-  // Initialize servo communication
-  printf("Initializing servo...\r\n");
+  /* 初始化舵机底层驱动 */
   servo_init(&huart3);
   HAL_Delay(100);
   
-  // Verify connection
-  if (servo_ping(servo_id)) {
-      printf("[OK] Servo connected\r\n");
-  } else {
-      printf("[ERROR] Servo not responding\r\n");
-      while(1) { HAL_Delay(1000); }
-  }
-  
-  // Initialize servo controller
-  ServoControl_Init(&servo_ctrl, servo_id);
-  
-  // Set custom PID parameters
-  PIDParams_t pid = {
-      .kp = 3.0f,
-      .ki = 0.2f,
-      .kd = 1.0f,
-      .max_output = 2000,
-      .min_output = 150
-  };
-  ServoControl_SetPID(&pid);
-  
-  // Enable controller
-  ServoControl_Enable(&servo_ctrl);
+  /* 启用扭矩（速度已在servo_init中设置为最大） */
+  servo_set_torque_enable(SERVO_ID, 1);
   HAL_Delay(100);
   
-  // Move to home position first
-  printf("\r\nMoving to home position...\r\n");
-  ServoControl_Home(&servo_ctrl);
-  
-  // Wait for home position
-  while (!ServoControl_IsAtTarget(&servo_ctrl)) {
-      ServoControl_Update(&servo_ctrl);
-      HAL_Delay(SERVO_CONTROL_PERIOD_MS);
-  }
-  printf("Home position reached: %d\r\n", servo_ctrl.current_position);
-  HAL_Delay(1000);
-  
-  // Start 270-degree rotation
   printf("\r\n========================================\r\n");
-  printf("Starting 270-degree clockwise rotation\r\n");
-  printf("Angle(deg) | Position | Target | Error\r\n");
-  printf("----------------------------------------\r\n");
+  printf("    DOOR CONTROL STATE MACHINE TEST\r\n");
+  printf("========================================\r\n");
+  printf("Mapping:\r\n");
+  printf("  - CLOSED = 222 degrees (position 2526)\r\n");
+  printf("  - OPEN   = 0 degrees (position 0)\r\n");
+  printf("----------------------------------------\r\n\r\n");
   
-  ServoControl_RotateContinuous(&servo_ctrl, 270.0f);
-  uint32_t start_time = HAL_GetTick();
+  /* 读取并显示当前位置 */
+  uint16_t initial_pos = servo_get_position(SERVO_ID);
+  printf("Current servo position: %u\r\n", initial_pos);
+  printf("Current angle: %.1f degrees\r\n", initial_pos * 0.087890625);
+  printf("\r\n");
+  
+  /* 初始化门控系统 */
+  DoorControl_Init(&door, SERVO_ID);
+  HAL_Delay(1000);
   
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  uint32_t last_update_time = 0;
-  uint32_t last_print_time = 0;
-  uint8_t rotation_complete = 0;
+  uint32_t test_phase = 0;
+  uint32_t phase_start_time = HAL_GetTick();
+  uint32_t status_print_time = 0;
+  
+  printf("\r\n=== Starting state machine test ===\r\n\r\n");
   
   while (1)
   {
     uint32_t current_time = HAL_GetTick();
     
-    // Update control loop at 50ms intervals
-    if (current_time - last_update_time >= SERVO_CONTROL_PERIOD_MS) {
-        ServoControl_Update(&servo_ctrl);
-        last_update_time = current_time;
+    /* 更新门控状态 */
+    DoorControl_Update(&door);
+    
+    /* 每秒打印一次状态 */
+    if (current_time - status_print_time >= 1000) {
+        status_print_time = current_time;
+        DoorControl_PrintStatus(&door);
+    }
+    
+    /* 测试序列：每个动作等待5秒 */
+    if (current_time - phase_start_time >= 5000) {
+        phase_start_time = current_time;
+        test_phase++;
         
-        // LED indication based on state
-        if (servo_ctrl.fsm.current_state == SERVO_FSM_MOVING) {
-            LED_Toggle();
-        } else if (servo_ctrl.fsm.current_state == SERVO_FSM_REACHED) {
-            LED_On();
-            if (!rotation_complete) {
-                rotation_complete = 1;
-                uint32_t total_time = HAL_GetTick() - start_time;
-                printf("----------------------------------------\r\n");
-                printf("Rotation completed in %d.%d seconds\r\n", 
-                       (int)(total_time / 1000), 
-                       (int)((total_time % 1000) / 100));
-                printf("Final position: %d (target: %d)\r\n", 
-                       servo_ctrl.current_position, 
-                       servo_ctrl.target_position);
-                printf("Final error: %d steps\r\n", servo_ctrl.position_error);
-                printf("========================================\r\n\r\n");
-            }
-        } else {
-            LED_Off();
+        printf("\r\n--- Test Phase %lu ---\r\n", test_phase);
+        
+        switch (test_phase % 4) {
+            case 1:
+                printf("ACTION: Opening door (moving to 0°)\r\n");
+                DoorControl_Open(&door);
+                break;
+                
+            case 2:
+                printf("ACTION: Waiting at OPEN position\r\n");
+                printf("You should see the door at 0 degrees\r\n");
+                break;
+                
+            case 3:
+                printf("ACTION: Closing door (moving to 222°)\r\n");
+                DoorControl_Close(&door);
+                break;
+                
+            case 0:
+                printf("ACTION: Waiting at CLOSED position\r\n");
+                printf("You should see the door at 222 degrees\r\n");
+                break;
         }
     }
     
-    // Print angle and error tracking every 200ms during movement
-    if (!rotation_complete && current_time - last_print_time >= 200) {
-        if (servo_ctrl.fsm.current_state == SERVO_FSM_MOVING || 
-            servo_ctrl.fsm.current_state == SERVO_FSM_SETTLING) {
-            
-            // Calculate angle in degrees (4096 steps = 360 degrees)
-            float current_angle = (servo_ctrl.current_position * 360.0f) / 4096.0f;
-            float target_angle = (servo_ctrl.target_position * 360.0f) / 4096.0f;
-            
-            // Print with integer representation to avoid printf float issues
-            int curr_angle_int = (int)current_angle;
-            int curr_angle_dec = (int)((current_angle - curr_angle_int) * 10);
-            
-            printf("%3d.%d° | %5d | %5d | %+5d\r\n",
-                   curr_angle_int, curr_angle_dec,
-                   servo_ctrl.current_position,
-                   servo_ctrl.target_position,
-                   servo_ctrl.position_error);
-        }
-        last_print_time = current_time;
-    }
+    /* 小延时 */
+    HAL_Delay(10);
     
     /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -217,6 +217,32 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+// UART发送完成回调
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2) {
+        /* Call RS485 TX complete callback */
+        rs485_tx_complete_callback();
+    }
+}
+
+// UART接收完成回调 (not used when RS485 module is active)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2) {
+        /* Handled by RS485 module with DMA circular mode */
+    }
+}
+
+// UART错误回调
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART2) {
+        printf("UART2 Error: 0x%08lX\r\n", huart->ErrorCode);
+        // RS485模块会自动处理错误恢复
+    }
+}
+
 /* USER CODE END 4 */
 
 /**
@@ -233,7 +259,6 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-
 #ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number

@@ -1,0 +1,4 @@
+../Core/Modules/keyboard/keyboard_simple.c:9:6:Keyboard_Simple_Init	8	static
+../Core/Modules/keyboard/keyboard_simple.c:26:9:Keyboard_Simple_Scan	32	static
+../Core/Modules/keyboard/keyboard_simple.c:109:9:Keyboard_Simple_GetKey	4	static
+../Core/Modules/keyboard/keyboard_simple.c:121:6:Keyboard_Simple_IsKeyPressed	16	static
