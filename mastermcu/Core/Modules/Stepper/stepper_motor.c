@@ -1,6 +1,7 @@
 #include "stepper_motor.h"
 #include "../CAN/can.h"
 #include <string.h>
+#include <stdlib.h>
 
 /* 私有函数声明 */
 static void StepperMotor_UpdateStatus(StepperMotor_t* motor);
@@ -157,7 +158,25 @@ void StepperMotor_Stop(StepperMotor_t* motor) {
 
 /* 查询是否在运动 */
 bool StepperMotor_IsMoving(StepperMotor_t* motor) {
-    return motor->is_moving && !(motor->status_word & SW_TARGET_REACHED);
+    /* 使用多重条件判断是否还在运动 */
+    if (!motor->is_moving) {
+        return false;
+    }
+    
+    /* 检查状态字的目标到达位 */
+    if (motor->status_word & SW_TARGET_REACHED) {
+        return false;
+    }
+    
+    /* 额外检查：如果位置误差很小，也认为已停止 */
+    int32_t position_error = abs(motor->current_position - motor->target_position);
+    if (position_error < 150) {  // 增加容差到150步
+        printf("  Position close enough: error=%ld, marking as stopped\r\n", position_error);
+        motor->is_moving = false;
+        return false;
+    }
+    
+    return true;
 }
 
 /* 查询是否使能 */
@@ -200,13 +219,19 @@ void StepperMotor_Update(StepperMotor_t* motor) {
             /* 检查是否到达目标 */
             if (motor->is_moving && (motor->status_word & SW_TARGET_REACHED)) {
                 motor->is_moving = false;
+                printf("  Target reached! Status=0x%04X\r\n", motor->status_word);
             }
+        } else {
+            printf("  Failed to read status word\r\n");
         }
         
         /* 读取当前位置 */
         len = 4;
         if (StepperMotor_ReadSDO(motor->node_id, OD_ACTUAL_POSITION, 0, data, &len)) {
             memcpy(&motor->current_position, data, 4);
+            printf("  Position read: %ld\r\n", motor->current_position);
+        } else {
+            printf("  Failed to read position\r\n");
         }
     }
     

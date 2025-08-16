@@ -7,7 +7,7 @@
 
 /* 步进电机常量 */
 #define STEPPER_NODE_ID         32      // 电机节点ID
-#define STEPPER_SPEED           10000   // 运行速度 (p/s)
+#define STEPPER_SPEED           5000    // 运行速度 (p/s) - 放慢一倍
 
 /* CANopen对象字典索引 */
 #define OD_CONTROL_WORD         0x6040
