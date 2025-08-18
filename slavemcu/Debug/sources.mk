@@ -23,11 +23,10 @@ C_DEPS :=
 # Every subdirectory with source files must be described here
 SUBDIRS := \
 Core/Modules/LED \
-Core/Modules/Local_RS485 \
-Core/Modules/RS485_Common/Core \
-Core/Modules/RS485_Common/Protocol \
-Core/Modules/RS485_Common/Utils \
+Core/Modules/Local_BB \
+Core/Modules/RS485 \
 Core/Modules/keyboard \
+Core/Modules/photo_sensor \
 Core/Modules/servo \
 Core/Src \
 Core/Startup \

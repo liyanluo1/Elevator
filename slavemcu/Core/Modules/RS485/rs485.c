@@ -44,10 +44,10 @@ rs485_status_t rs485_init(void)
     HAL_UART_Receive_DMA(rs485_driver.huart, rs485_dma_rx_buffer, RS485_DMA_RX_BUFFER_SIZE);
     
     /* Set DMA to circular mode (STM32F1 style) */
-    rs485_driver.huart->hdmarx->Instance->CCR |= DMA_CCR_CIRC;
+    // rs485_driver.huart->hdmarx->Instance->CCR |= DMA_CCR_CIRC;
     
     /* Enable IDLE interrupt */
-    __HAL_UART_ENABLE_IT(rs485_driver.huart, UART_IT_IDLE);
+     __HAL_UART_ENABLE_IT(rs485_driver.huart, UART_IT_IDLE);
     
     /* Reset statistics */
     rs485_reset_stats();

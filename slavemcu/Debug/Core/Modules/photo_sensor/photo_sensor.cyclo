@@ -1,0 +1,6 @@
+../Core/Modules/photo_sensor/photo_sensor.c:10:6:PhotoSensor_Init	1
+../Core/Modules/photo_sensor/photo_sensor.c:36:22:PhotoSensor_GetState	2
+../Core/Modules/photo_sensor/photo_sensor.c:53:10:PhotoSensor_GetTriggerCount	1
+../Core/Modules/photo_sensor/photo_sensor.c:61:6:PhotoSensor_ResetCount	1
+../Core/Modules/photo_sensor/photo_sensor.c:70:6:PhotoSensor_IRQHandler	2
+../Core/Modules/photo_sensor/photo_sensor.c:87:13:PhotoSensor_TriggerCallback	1

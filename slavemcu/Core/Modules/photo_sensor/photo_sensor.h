@@ -3,11 +3,11 @@
 
 #include "main.h"
 
-/* Photo sensor pin definition - Changed to PB3 */
+/* Photo sensor pin definition - PB5 */
 #define PHOTO_SENSOR_GPIO_PORT  GPIOB
-#define PHOTO_SENSOR_GPIO_PIN   GPIO_PIN_3
-#define PHOTO_SENSOR_EXTI_LINE  EXTI_Line3
-#define PHOTO_SENSOR_IRQn       EXTI3_IRQn
+#define PHOTO_SENSOR_GPIO_PIN   GPIO_PIN_5
+#define PHOTO_SENSOR_EXTI_LINE  EXTI_Line5
+#define PHOTO_SENSOR_IRQn       EXTI9_5_IRQn  // PB5 uses EXTI9_5
 
 /* Photo sensor states */
 typedef enum {
@@ -24,5 +24,17 @@ void PhotoSensor_IRQHandler(void);
 
 /* Callback - can be implemented by user */
 void PhotoSensor_TriggerCallback(void);
+
+/* Floor detection functions */
+typedef struct {
+    uint8_t current_floor;
+    uint8_t moving_direction;  /* 0=stopped, 1=up, 2=down */
+    uint32_t last_trigger_time;
+    void (*floor_detected_callback)(uint8_t floor);
+} floor_detector_t;
+
+void PhotoSensor_InitFloorDetector(floor_detector_t *detector, uint8_t initial_floor);
+void PhotoSensor_SetDirection(floor_detector_t *detector, uint8_t direction);
+void PhotoSensor_ProcessTrigger(floor_detector_t *detector);
 
 #endif /* __PHOTO_SENSOR_H */

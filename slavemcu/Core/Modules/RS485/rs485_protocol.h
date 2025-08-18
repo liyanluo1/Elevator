@@ -4,18 +4,24 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* 命令定义 */
-typedef enum {
-    CMD_PHOTO_SENSOR    = 0x10,  /* 光电传感器触发 */
-    CMD_DOOR_OPEN       = 0x20,  /* 开门命令 */
-    CMD_DOOR_CLOSE      = 0x21,  /* 关门命令 */
-    CMD_DOOR_STATUS     = 0x22,  /* 门状态 */
-    CMD_FLOOR_CALL      = 0x30,  /* 楼层呼叫 */
-    CMD_DIRECTION_SET   = 0x40,  /* 设置运行方向 */
-    CMD_STATUS_REQUEST  = 0x50,  /* 状态请求 */
-    CMD_STATUS_RESPONSE = 0x51,  /* 状态响应 */
-    CMD_ERROR           = 0xF0,  /* 错误报告 */
-} rs485_cmd_t;
+/* ==================== RS485 Protocol Commands ==================== */
+
+/* 命令定义 - 使用宏定义方便直接使用 */
+#define CMD_PHOTO_SENSOR    0x10  /* 光电传感器触发: [CMD][Floor][0][0] */
+#define CMD_DOOR_OPEN       0x20  /* 开门命令: [CMD][0][0][0] */
+#define CMD_DOOR_CLOSE      0x21  /* 关门命令: [CMD][0][0][0] */
+#define CMD_DOOR_STATUS     0x22  /* 门状态: [CMD][Status][0][0] */
+#define CMD_FLOOR_CALL      0x30  /* 楼层外呼: [CMD][Floor][Dir][0] */
+#define CMD_CABIN_CALL      0x31  /* 轿厢内呼: [CMD][Floor][0][0] */
+#define CMD_DIRECTION_SET   0x40  /* 设置方向: [CMD][Dir][CurFloor][TargetFloor] */
+#define CMD_STATUS_REQUEST  0x50  /* 状态请求: [CMD][0][0][0] */
+#define CMD_STATUS_RESPONSE 0x51  /* 状态响应: [CMD][Floor][Dir][Door] */
+#define CMD_ERROR           0xF0  /* 错误报告: [CMD][ErrCode][0][0] */
+
+/* 方向定义 */
+#define DIR_STOP    0  /* 停止 */
+#define DIR_UP      1  /* 上行 */
+#define DIR_DOWN    2  /* 下行 */
 
 /* 数据包结构 */
 typedef struct {

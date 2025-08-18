@@ -1,0 +1,25 @@
+// Master -> Slave Ping
+// Slave -> Master Pong
+// bitproto protobuf
+
+typedef enum MovingStatus_e {
+    STOP,
+    // 
+}MovingStatus_t;
+//Master [HEAD][SEQ][CMD][LENGTH][PAYLOAD][CRC][TAIL]
+// payload [floor][motor][direction][door_command][button_led[0][0][0]]
+// payload [floor][motor][direction][door_command][button_led[0][1][0]]
+typedef struct PingPackage_s {
+    uint8_t current_floor;
+    MotorStatus_t motor_status;
+    MovingStatus_t moving_status;
+    DoorCommand_t door_command;
+    bool button_leds[3];
+} PingPackage_t;
+// Slave [HEAD][SEQ][CMD][LENGTH][PAYLOAD][CRC][TAIL]
+// payload [door_status][cabin_call[0][1][1]][photo_status]
+typedef struct PongPackage_s {
+    DoorStatus_t door_status;
+    bool internal_call[3];
+    bool photo_status;
+} PongPackage_t;

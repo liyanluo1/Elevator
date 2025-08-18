@@ -1,0 +1,8 @@
+../Core/Modules/servo/door_control.c:8:6:DoorControl_Init	24	static
+../Core/Modules/servo/door_control.c:36:6:DoorControl_Open	16	static
+../Core/Modules/servo/door_control.c:50:6:DoorControl_Close	16	static
+../Core/Modules/servo/door_control.c:64:6:DoorControl_Update	32	static
+../Core/Modules/servo/door_control.c:106:13:DoorControl_GetState	16	static
+../Core/Modules/servo/door_control.c:113:13:DoorControl_GetStateName	16	static
+../Core/Modules/servo/door_control.c:126:7:DoorControl_GetAngle	16	static
+../Core/Modules/servo/door_control.c:133:6:DoorControl_PrintStatus	40	static

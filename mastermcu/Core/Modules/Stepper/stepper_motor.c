@@ -171,7 +171,6 @@ bool StepperMotor_IsMoving(StepperMotor_t* motor) {
     /* 额外检查：如果位置误差很小，也认为已停止 */
     int32_t position_error = abs(motor->current_position - motor->target_position);
     if (position_error < 150) {  // 增加容差到150步
-        printf("  Position close enough: error=%ld, marking as stopped\r\n", position_error);
         motor->is_moving = false;
         return false;
     }
@@ -205,8 +204,8 @@ void StepperMotor_Update(StepperMotor_t* motor) {
     static uint32_t last_query_time = 0;
     uint32_t current_time = HAL_GetTick();
     
-    /* 每50ms查询一次状态 */
-    if (current_time - last_query_time >= 50) {
+    /* 每20ms查询一次状态 - 更频繁更新 */
+    if (current_time - last_query_time >= 20) {
         last_query_time = current_time;
         
         /* 读取状态字 */
@@ -219,19 +218,13 @@ void StepperMotor_Update(StepperMotor_t* motor) {
             /* 检查是否到达目标 */
             if (motor->is_moving && (motor->status_word & SW_TARGET_REACHED)) {
                 motor->is_moving = false;
-                printf("  Target reached! Status=0x%04X\r\n", motor->status_word);
             }
-        } else {
-            printf("  Failed to read status word\r\n");
         }
         
         /* 读取当前位置 */
         len = 4;
         if (StepperMotor_ReadSDO(motor->node_id, OD_ACTUAL_POSITION, 0, data, &len)) {
             memcpy(&motor->current_position, data, 4);
-            printf("  Position read: %ld\r\n", motor->current_position);
-        } else {
-            printf("  Failed to read position\r\n");
         }
     }
     
@@ -281,8 +274,8 @@ bool StepperMotor_SendSDO(uint8_t node_id, uint16_t index, uint8_t subindex,
         return false;
     }
     
-    /* 简单延迟等待响应 */
-    HAL_Delay(8);
+    /* 简单延迟等待响应 - 减少延迟 */
+    HAL_Delay(2);
     
     return true;
 }

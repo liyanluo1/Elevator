@@ -1,0 +1,11 @@
+../Core/Modules/RS485/rs485_test.c:32:6:RS485_Test_Init	8	static
+../Core/Modules/RS485/rs485_test.c:51:6:RS485_Test_SendSimple	24	static
+../Core/Modules/RS485/rs485_test.c:88:6:RS485_Test_SendProtocol	24	static
+../Core/Modules/RS485/rs485_test.c:113:6:RS485_Test_CheckReceive	88	static
+../Core/Modules/RS485/rs485_test.c:175:6:RS485_Test_SendStatus	16	static
+../Core/Modules/RS485/rs485_test.c:191:6:RS485_Test_SimulatePhotoSensor	16	static
+../Core/Modules/RS485/rs485_test.c:211:6:RS485_Test_Process	16	static
+../Core/Modules/RS485/rs485_test.c:250:6:RS485_Test_SetMode	16	static
+../Core/Modules/RS485/rs485_test.c:258:6:RS485_Test_SetEcho	16	static
+../Core/Modules/RS485/rs485_test.c:266:6:RS485_Test_PrintStats	32	static
+../Core/Modules/RS485/rs485_test.c:290:6:RS485_Test_SendCommand	40	static

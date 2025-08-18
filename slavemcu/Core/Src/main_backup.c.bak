@@ -1,0 +1,339 @@
+/* USER CODE BEGIN Header */
+/**
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Slave MCU - Door control, keyboard and photo sensor
+  ******************************************************************************
+  */
+/* USER CODE END Header */
+/* Includes ------------------------------------------------------------------*/
+#include "main.h"
+#include "dma.h"
+#include "usart.h"
+#include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include "../Modules/keyboard/keyboard.h"
+#include "../Modules/photo_sensor/photo_sensor.h"
+#include "../Modules/Local_BB/local_blackboard.h"
+#include "../Modules/RS485/rs485.h"          /* RS485驱动 */
+#include "../Modules/RS485/rs485_protocol.h"  /* RS485协议定义 */
+#include <stdio.h>
+/* USER CODE END Includes */
+
+/* Private typedef -----------------------------------------------------------*/
+/* USER CODE BEGIN PTD */
+
+/* USER CODE END PTD */
+
+/* Private define ------------------------------------------------------------*/
+/* USER CODE BEGIN PD */
+
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+
+/* USER CODE BEGIN PV */
+/* 光电传感器状态 */
+volatile bool sensor_triggered = false;
+/* USER CODE END PV */
+
+/* Private function prototypes -----------------------------------------------*/
+void SystemClock_Config(void);
+/* USER CODE BEGIN PFP */
+void PhotoSensor_TriggerCallback(void);
+/* USER CODE END PFP */
+
+/* Private user code ---------------------------------------------------------*/
+/* USER CODE BEGIN 0 */
+
+/* USER CODE END 0 */
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_DMA_Init();
+  MX_USART3_UART_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
+  /* USER CODE BEGIN 2 */
+  
+  printf("\r\n=== KEYBOARD & PHOTO SENSOR TEST ===\r\n");
+  printf("Testing both modules with interrupts\r\n\r\n");
+  
+  printf("[KEYBOARD] Interrupt mode (PA11 EXTI)\r\n");
+  printf("  S16 (PA4)  -> Floor 1\r\n");
+  printf("  S15 (PA8)  -> Floor 2\r\n");
+  printf("  S14 (PA5)  -> Floor 3\r\n");
+  printf("  S13 (PA12) -> Not used\r\n\r\n");
+  
+  printf("[PHOTO SENSOR] Interrupt mode (PB5 EXTI)\r\n");
+  printf("  Trigger: Object blocks sensor\r\n");
+  printf("  Release: Object removed\r\n\r\n");
+  
+  /* 初始化键盘 - 中断模式 */
+  Keyboard_Init();
+  printf("[KEYBOARD] Initialized\r\n");
+  
+  /* 初始化光电传感器 - 中断模式 */
+  PhotoSensor_Init();
+  photo_sensor_state_t initial_state = PhotoSensor_GetState();
+  printf("[PHOTO] Initialized - Initial state: %s\r\n", 
+         initial_state == PHOTO_SENSOR_BLOCKED ? "BLOCKED" : "CLEAR");
+  
+  /* 初始化Local Blackboard - 中央事件管理 */
+  LocalBB_Init();
+  printf("[LocalBB] Initialized - Event queue ready\r\n");
+  
+  printf("\r\nSystem ready. Waiting for events...\r\n\r\n");
+  
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  uint32_t alive_time = 0;
+  uint32_t keyboard_count = 0;
+  uint32_t last_sensor_count = 0;
+  photo_sensor_state_t last_sensor_state = initial_state;
+  
+  while (1)
+  {
+    uint32_t current_time = HAL_GetTick();
+    
+    /* === 处理键盘 === */
+    Keyboard_Handler();
+    
+    /* 检查是否有按键按下 */
+    uint8_t key;
+    if (Keyboard_PopKey(&key)) {
+      keyboard_count++;
+      
+      /* 打印按键信息 */
+      printf("[KEYBOARD #%lu] ", keyboard_count);
+      uint8_t target_floor = 0;
+      switch(key) {
+        case KEY_S16:
+          printf("S16 -> Floor 1");
+          target_floor = 1;
+          break;
+        case KEY_S15:
+          printf("S15 -> Floor 2");
+          target_floor = 2;
+          break;
+        case KEY_S14:
+          printf("S14 -> Floor 3");
+          target_floor = 3;
+          break;
+        case KEY_S13:
+          printf("S13 -> Not used");
+          break;
+        default:
+          printf("Unknown (0x%02X)", key);
+          break;
+      }
+      printf("\r\n");
+      
+      /* 通过LocalBB处理内呼 */
+      if (target_floor > 0) {
+        LocalBB_AddCabinCall(target_floor);
+      }
+    }
+    
+    /* === 处理光电传感器 === */
+    if (sensor_triggered) {
+      sensor_triggered = false;
+      
+      photo_sensor_state_t current_state = PhotoSensor_GetState();
+      uint32_t total_triggers = PhotoSensor_GetTriggerCount();
+      
+      if (current_state != last_sensor_state) {
+        printf("[PHOTO] State: %s -> %s (Total: %lu)\r\n",
+               last_sensor_state == PHOTO_SENSOR_BLOCKED ? "BLOCKED" : "CLEAR",
+               current_state == PHOTO_SENSOR_BLOCKED ? "BLOCKED" : "CLEAR",
+               total_triggers);
+        last_sensor_state = current_state;
+        
+        /* 当光电传感器被遮挡时，通过LocalBB处理 */
+        if (current_state == PHOTO_SENSOR_BLOCKED) {
+          LocalBB_AddPhotoSensor();
+        }
+      }
+    }
+    
+    /* === 处理RS485接收 - 接收Master的指令 === */
+    uint8_t rx_buffer[64];
+    uint16_t rx_len = rs485_receive_packet(rx_buffer, sizeof(rx_buffer));
+    if (rx_len > 0) {
+      /* 方向设置命令: [CMD_DIRECTION_SET][方向][当前楼层][目标楼层] */
+      if (rx_buffer[0] == CMD_DIRECTION_SET && rx_len >= 4) {
+        uint8_t dir = rx_buffer[1];     // 0=停止, 1=上行, 2=下行
+        uint8_t cur = rx_buffer[2];     // 当前楼层
+        uint8_t target = rx_buffer[3];  // 目标楼层
+        
+        /* 通过LocalBB处理方向设置 */
+        LocalBB_SetDirection(dir, cur, target);
+      }
+      /* 门控制命令 */
+      else if (rx_buffer[0] == CMD_DOOR_OPEN) {
+        LocalBB_AddDoorCommand(true);
+      }
+      else if (rx_buffer[0] == CMD_DOOR_CLOSE) {
+        LocalBB_AddDoorCommand(false);
+      }
+    }
+    
+    /* === 处理LocalBB事件队列 === */
+    LocalBB_Process();
+    
+    /* 检查光电传感器计数变化 */
+    uint32_t current_sensor_count = PhotoSensor_GetTriggerCount();
+    if (current_sensor_count != last_sensor_count) {
+      last_sensor_count = current_sensor_count;
+      // 计数已在上面的状态变化中显示
+    }
+    
+    /* 每10秒打印一次运行状态 */
+    if (current_time - alive_time >= 10000) {
+      alive_time = current_time;
+      LocalBB_PrintStatus();  // 使用LocalBB的状态打印
+    }
+    
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
+
+/**
+  * @brief System Clock Configuration
+  * @retval None
+  */
+void SystemClock_Config(void)
+{
+  RCC_OscInitTypeDef RCC_OscInitStruct = {0};
+  RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
+
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
+  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
+  if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
+
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+/* USER CODE BEGIN 4 */
+
+/**
+  * @brief  光电传感器触发回调
+  * @note   在中断中被调用
+  */
+void PhotoSensor_TriggerCallback(void)
+{
+    sensor_triggered = true;
+}
+
+/**
+  * @brief  HAL GPIO EXTI回调 - 统一处理所有GPIO中断
+  * @param  GPIO_Pin: 触发中断的引脚
+  * @note   这个函数覆盖HAL库的weak函数
+  */
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if (GPIO_Pin == GPIO_PIN_11) {
+        // PA11 中断 - 键盘按下
+        Keyboard_IRQHandler();
+    }
+    else if (GPIO_Pin == GPIO_PIN_5) {
+        // PB5 中断 - 光电传感器
+        PhotoSensor_IRQHandler();
+    }
+    // 如果将来有其他GPIO中断，可以在这里添加
+}
+
+/* USER CODE END 4 */
+
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
+void Error_Handler(void)
+{
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
+  __disable_irq();
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
+}
+#ifdef USE_FULL_ASSERT
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */

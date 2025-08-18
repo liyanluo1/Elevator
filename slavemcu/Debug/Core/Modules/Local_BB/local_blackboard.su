@@ -1,0 +1,14 @@
+../Core/Modules/Local_BB/local_blackboard.c:14:6:LocalBB_Init	16	static
+../Core/Modules/Local_BB/local_blackboard.c:32:6:LocalBB_Reset	8	static
+../Core/Modules/Local_BB/local_blackboard.c:38:13:PushEvent	32	static
+../Core/Modules/Local_BB/local_blackboard.c:57:13:PopEvent	16	static
+../Core/Modules/Local_BB/local_blackboard.c:71:6:LocalBB_AddCabinCall	24	static
+../Core/Modules/Local_BB/local_blackboard.c:87:6:LocalBB_AddPhotoSensor	16	static
+../Core/Modules/Local_BB/local_blackboard.c:113:6:LocalBB_SetDirection	24	static
+../Core/Modules/Local_BB/local_blackboard.c:133:6:LocalBB_AddDoorCommand	16	static
+../Core/Modules/Local_BB/local_blackboard.c:142:6:LocalBB_Process	40	static
+../Core/Modules/Local_BB/local_blackboard.c:206:6:LocalBB_HasEvents	4	static
+../Core/Modules/Local_BB/local_blackboard.c:212:9:LocalBB_GetCurrentFloor	4	static
+../Core/Modules/Local_BB/local_blackboard.c:216:9:LocalBB_GetExpectedFloor	4	static
+../Core/Modules/Local_BB/local_blackboard.c:220:9:LocalBB_GetDirection	4	static
+../Core/Modules/Local_BB/local_blackboard.c:226:6:LocalBB_PrintStatus	8	static

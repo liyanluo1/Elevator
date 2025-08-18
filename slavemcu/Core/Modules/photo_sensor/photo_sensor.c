@@ -5,7 +5,7 @@ static volatile uint32_t trigger_count = 0;
 static volatile uint32_t last_trigger_time = 0;
 
 /**
- * @brief Initialize photo sensor on PB3 with interrupt
+ * @brief Initialize photo sensor on PB5 with interrupt
  */
 void PhotoSensor_Init(void)
 {
@@ -14,14 +14,14 @@ void PhotoSensor_Init(void)
     /* Enable GPIOB clock */
     __HAL_RCC_GPIOB_CLK_ENABLE();
     
-    /* Configure PB3 as input with pull-up */
-    GPIO_InitStruct.Pin = PHOTO_SENSOR_GPIO_PIN;  // GPIO_PIN_3
-    GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;  /* Interrupt on falling edge (object detected) */
+    /* Configure PB5 as input with pull-up */
+    GPIO_InitStruct.Pin = PHOTO_SENSOR_GPIO_PIN;  // GPIO_PIN_5
+    GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;   /* Interrupt on rising edge only */
     GPIO_InitStruct.Pull = GPIO_PULLUP;           /* Internal pull-up resistor */
     HAL_GPIO_Init(PHOTO_SENSOR_GPIO_PORT, &GPIO_InitStruct);
     
-    /* Enable and set EXTI3 interrupt priority */
-    HAL_NVIC_SetPriority(PHOTO_SENSOR_IRQn, 2, 0);  // EXTI3_IRQn
+    /* Enable and set EXTI9_5 interrupt priority (PB5 uses this) */
+    HAL_NVIC_SetPriority(PHOTO_SENSOR_IRQn, 2, 0);  // EXTI9_5_IRQn
     HAL_NVIC_EnableIRQ(PHOTO_SENSOR_IRQn);
     
     /* Reset counter */
@@ -65,26 +65,21 @@ void PhotoSensor_ResetCount(void)
 
 /**
  * @brief Photo sensor interrupt handler
- * @note Call this from EXTI1_IRQHandler in stm32f1xx_it.c
+ * @note Called from HAL_GPIO_EXTI_Callback
  */
 void PhotoSensor_IRQHandler(void)
 {
-    /* Check if interrupt is from our pin */
-    if (__HAL_GPIO_EXTI_GET_IT(PHOTO_SENSOR_GPIO_PIN) != RESET) {
-        /* Clear interrupt flag */
-        __HAL_GPIO_EXTI_CLEAR_IT(PHOTO_SENSOR_GPIO_PIN);
+    /* Simple debounce: ignore triggers within 50ms */
+    uint32_t current_time = HAL_GetTick();
+    if (current_time - last_trigger_time > 50) {
+        trigger_count++;
+        last_trigger_time = current_time;
         
-        /* Simple debounce: ignore triggers within 50ms */
-        uint32_t current_time = HAL_GetTick();
-        if (current_time - last_trigger_time > 50) {
-            trigger_count++;
-            last_trigger_time = current_time;
-            
-            /* Call user callback */
-            PhotoSensor_TriggerCallback();
-        }
+        /* Call user callback */
+        PhotoSensor_TriggerCallback();
     }
 }
+
 
 /**
  * @brief Weak callback function - override in main.c

@@ -1,0 +1,5 @@
+../Core/Src/main_backup.c:62:5:main	20
+../Core/Src/main_backup.c:244:6:SystemClock_Config	3
+../Core/Src/main_backup.c:285:6:PhotoSensor_TriggerCallback	1
+../Core/Src/main_backup.c:295:6:HAL_GPIO_EXTI_Callback	3
+../Core/Src/main_backup.c:314:6:Error_Handler	1

@@ -1,3 +1,12 @@
-../Core/Src/main.c:38:5:main	80	static
-../Core/Src/main.c:183:6:SystemClock_Config	72	static
-../Core/Src/main.c:226:6:Error_Handler	4	static,ignoring_inline_asm
+../Core/Src/main.c:110:5:main	40	static
+../Core/Src/main.c:240:6:SystemClock_Config	72	static
+../Core/Src/main.c:280:6:ProcessKeyboard	16	static
+../Core/Src/main.c:324:6:ProcessPhotoSensor	16	static
+../Core/Src/main.c:392:6:ProcessRS485	88	static
+../Core/Src/main.c:444:6:ProcessDoorControl	16	static
+../Core/Src/main.c:498:6:SendPhotoSensorEvent	24	static
+../Core/Src/main.c:513:6:SendCabinCall	32	static
+../Core/Src/main.c:538:6:SendDoorStatus	24	static
+../Core/Src/main.c:554:6:PhotoSensor_TriggerCallback	4	static
+../Core/Src/main.c:564:6:HAL_GPIO_EXTI_Callback	16	static
+../Core/Src/main.c:582:6:Error_Handler	4	static,ignoring_inline_asm

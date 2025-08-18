@@ -1,5 +1,4 @@
 #include "keyboard.h"
-// #include "rs485_slave.h"  // COMMENTED OUT FOR TESTING
 #include <stdio.h>
 #include <string.h>
 
@@ -19,35 +18,48 @@ void Keyboard_Init(void) {
     g_keyboard.buffer_head = 0;
     g_keyboard.buffer_tail = 0;
     g_keyboard.buffer_count = 0;
+    g_keyboard.interrupt_flag = false;
+    g_keyboard.interrupt_time = 0;
     
     // 初始化GPIO
     Keyboard_GPIO_Init();
 }
 
-// 主处理函数
+// 主处理函数 - 中断模式
 void Keyboard_Handler(void) {
-    uint32_t current_time = HAL_GetTick();
-    
-    // 检查是否到达扫描时间
-    if (current_time - g_keyboard.last_scan_time >= KEYBOARD_SCAN_PERIOD) {
-        g_keyboard.last_scan_time = current_time;
+    // 检查中断标志
+    if (g_keyboard.interrupt_flag) {
+        g_keyboard.interrupt_flag = false;
         
-        // 扫描键盘
-        uint8_t key = Keyboard_Scan();
+        uint32_t current_time = HAL_GetTick();
         
-        // 处理按键
-        if (key != KEY_NONE && key != g_keyboard.last_key) {
-            Keyboard_ProcessKey(key);
+        // 去抖处理 - 两次按键间隔至少 KEYBOARD_DEBOUNCE_TIME
+        if (current_time - g_keyboard.last_scan_time >= KEYBOARD_DEBOUNCE_TIME) {
+            g_keyboard.last_scan_time = current_time;
+            
+            // 延时5ms后再扫描，等待信号稳定
+            HAL_Delay(5);
+            
+            // 扫描键盘确定哪个按键被按下
+            uint8_t key = Keyboard_ScanInterrupt();
+            
+            // 处理按键 - 只处理不同于上次的按键
+            if (key != KEY_NONE && key != g_keyboard.last_key) {
+                Keyboard_ProcessKey(key);
+                g_keyboard.last_key = key;
+            }
+            
+            // 设置按键释放超时
+            g_keyboard.key_press_time = current_time;
         }
-        
-        g_keyboard.last_key = key;
     }
     
-    // Process buffered keys - simplified for S13-S16 testing
-    uint8_t buffered_key;
-    if (Keyboard_PopKey(&buffered_key)) {
-        // Just count the key press for testing
-        g_keyboard.total_key_presses++;
+    // 检查按键释放
+    uint32_t current_time = HAL_GetTick();
+    if (g_keyboard.last_key != KEY_NONE) {
+        if (current_time - g_keyboard.key_press_time > KEYBOARD_RELEASE_TIME) {
+            g_keyboard.last_key = KEY_NONE;
+        }
     }
 }
 
@@ -77,61 +89,129 @@ uint8_t Keyboard_Scan(void) {
     return KEY_NONE;
 }
 
-// Read keyboard matrix - Modified for S13-S16 (r4 row only)
-uint8_t Keyboard_ReadMatrix(void) {
+// Scan keyboard when interrupt triggered
+uint8_t Keyboard_ScanInterrupt(void) {
     uint8_t key = KEY_NONE;
+    uint8_t confirm_count = 0;
     
-    // Set all columns HIGH first
+    // First set all columns HIGH to prepare for scanning
     HAL_GPIO_WritePin(KEYBOARD_COL_PORT, 
                       KEYBOARD_COL1_PIN | KEYBOARD_COL2_PIN | 
                       KEYBOARD_COL3_PIN | KEYBOARD_COL4_PIN, 
                       GPIO_PIN_SET);
     
-    // Based on test results, the actual mapping is:
-    // Physical S16 -> detected as column 4 (PA4) -> Floor 1
-    // Physical S15 -> detected as column 1 (PA8) -> Floor 2  
-    // Physical S14 -> detected as column 3 (PA5) -> Floor 3 (already correct)
-    // Physical S13 -> detected as column 2 (PA12) -> Floor 4
+    // 等待电平稳定
+    HAL_Delay(1);
     
-    // Scan Floor 1 button (Physical S16 at c4 = PA4)
-    HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL4_PIN, GPIO_PIN_RESET);
-    for(volatile int i = 0; i < 100; i++);
-    if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+    // Physical wiring mapping:
+    // S16 -> PA4 -> Floor 1
+    // S15 -> PA8 -> Floor 2
+    // S14 -> PA5 -> Floor 3
+    // S13 -> PA12 -> Not used
+    
+    // Test each column one by one with confirmation
+    
+    // Test PA4 (COL4_PIN) for S16 -> Floor 1
+    HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL4_PIN, GPIO_PIN_RESET);  // PA4
+    HAL_Delay(1);  // 等待电平稳定
+    // 连续读取3次确认
+    confirm_count = 0;
+    for (int i = 0; i < 3; i++) {
+        if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+            confirm_count++;
+        }
+        for(volatile int j = 0; j < 100; j++);
+    }
+    if (confirm_count >= 2) {  // 至少3次中有2次读到低电平
         key = KEY_S16;  // Floor 1
     }
     HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL4_PIN, GPIO_PIN_SET);
     
     if (key == KEY_NONE) {
-        // Scan Floor 2 button (Physical S15 at c1 = PA8)
-        HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL1_PIN, GPIO_PIN_RESET);
-        for(volatile int i = 0; i < 100; i++);
-        if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+        // Test PA8 (COL1_PIN) for S15 -> Floor 2
+        HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL1_PIN, GPIO_PIN_RESET);  // PA8
+        HAL_Delay(1);
+        confirm_count = 0;
+        for (int i = 0; i < 3; i++) {
+            if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+                confirm_count++;
+            }
+            for(volatile int j = 0; j < 100; j++);
+        }
+        if (confirm_count >= 2) {
             key = KEY_S15;  // Floor 2
         }
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL1_PIN, GPIO_PIN_SET);
     }
     
     if (key == KEY_NONE) {
-        // Scan Floor 3 button (Physical S14 at c3 = PA5) - Already correct
-        HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL3_PIN, GPIO_PIN_RESET);
-        for(volatile int i = 0; i < 100; i++);
-        if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+        // Test PA5 (COL3_PIN) for S14 -> Floor 3
+        HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL3_PIN, GPIO_PIN_RESET);  // PA5
+        HAL_Delay(1);
+        confirm_count = 0;
+        for (int i = 0; i < 3; i++) {
+            if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+                confirm_count++;
+            }
+            for(volatile int j = 0; j < 100; j++);
+        }
+        if (confirm_count >= 2) {
             key = KEY_S14;  // Floor 3
         }
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL3_PIN, GPIO_PIN_SET);
     }
     
     if (key == KEY_NONE) {
-        // Scan Floor 4 button (Physical S13 at c2 = PA12)
-        HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL2_PIN, GPIO_PIN_RESET);
-        for(volatile int i = 0; i < 100; i++);
-        if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
-            key = KEY_S13;  // Floor 4 (not used currently)
+        // Test PA12 (COL2_PIN) for S13 -> Not used
+        HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL2_PIN, GPIO_PIN_RESET);  // PA12
+        HAL_Delay(1);
+        confirm_count = 0;
+        for (int i = 0; i < 3; i++) {
+            if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
+                confirm_count++;
+            }
+            for(volatile int j = 0; j < 100; j++);
+        }
+        if (confirm_count >= 2) {
+            key = KEY_S13;  // S13 detected but not used in elevator logic
         }
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL2_PIN, GPIO_PIN_SET);
     }
     
+    // 等待按键释放
+    if (key != KEY_NONE) {
+        // 等待按键释放（最多等500ms）
+        uint32_t wait_start = HAL_GetTick();
+        while ((HAL_GetTick() - wait_start) < 500) {
+            // 设置所有列为HIGH
+            HAL_GPIO_WritePin(KEYBOARD_COL_PORT, 
+                              KEYBOARD_COL1_PIN | KEYBOARD_COL2_PIN | 
+                              KEYBOARD_COL3_PIN | KEYBOARD_COL4_PIN, 
+                              GPIO_PIN_SET);
+            HAL_Delay(5);
+            
+            // 检查是否释放
+            if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_SET) {
+                // 按键已释放
+                HAL_Delay(10);  // 额外延时确保完全释放
+                break;
+            }
+        }
+    }
+    
+    // After scanning, set all columns LOW again for next interrupt
+    HAL_GPIO_WritePin(KEYBOARD_COL_PORT, 
+                      KEYBOARD_COL1_PIN | KEYBOARD_COL2_PIN | 
+                      KEYBOARD_COL3_PIN | KEYBOARD_COL4_PIN, 
+                      GPIO_PIN_RESET);
+    
     return key;
+}
+
+// Read keyboard matrix - Not used in interrupt mode
+uint8_t Keyboard_ReadMatrix(void) {
+    // Not used in interrupt mode
+    return KEY_NONE;
 }
 
 // 检查按键是否按下
@@ -190,57 +270,29 @@ void Keyboard_ProcessKey(uint8_t key) {
             Keyboard_PushKey(key);
         }
         
-        // Update blackboard - COMMENTED OUT FOR TESTING
-        // LocalBlackboard_SetKeyboardInput(key);
     }
 }
 
-// Handle floor request - STUB FOR TESTING
-void Keyboard_HandleFloorRequest(uint8_t floor) {
-    // STUB - Do nothing for testing
-    (void)floor;
-}
 
-// Handle door control - STUB FOR TESTING
-void Keyboard_HandleDoorControl(uint8_t cmd) {
-    // STUB - Do nothing for testing
-    (void)cmd;
-}
-
-// Handle emergency - STUB FOR TESTING
-void Keyboard_HandleEmergency(void) {
-    // STUB - Do nothing for testing
-}
-
-// GPIO Init - Modified for S13-S16 configuration
+// GPIO Init
 void Keyboard_GPIO_Init(void) {
     // GPIO is already initialized in gpio.c
-    // Just set all columns HIGH initially
+    // Set all columns LOW initially for interrupt mode
+    // When any button is pressed, it will pull PA11 LOW and trigger interrupt
     HAL_GPIO_WritePin(KEYBOARD_COL_PORT, 
                       KEYBOARD_COL1_PIN | KEYBOARD_COL2_PIN | 
                       KEYBOARD_COL3_PIN | KEYBOARD_COL4_PIN, 
-                      GPIO_PIN_SET);
+                      GPIO_PIN_RESET);
 }
 
-// Set row level - NOT USED FOR S13-S16
-void Keyboard_SetRow(uint8_t row) {
-    // Not used in S13-S16 configuration
-    (void)row;
+
+// 中断处理函数
+void Keyboard_IRQHandler(void) {
+    // 设置中断标志
+    g_keyboard.interrupt_flag = true;
+    g_keyboard.interrupt_time = HAL_GetTick();
 }
 
-// Read column status - NOT USED FOR S13-S16
-uint8_t Keyboard_ReadCol(void) {
-    // Not used in S13-S16 configuration
-    return 0;
-}
-
-// Key mapping - NOT USED FOR S13-S16
-uint8_t Keyboard_MapKey(uint8_t row, uint8_t col) {
-    // Not used in S13-S16 configuration
-    (void)row;
-    (void)col;
-    return KEY_NONE;
-}
 
 // 打印状态
 void Keyboard_PrintStatus(void) {

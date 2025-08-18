@@ -4,24 +4,25 @@
 #include "stm32f4xx_hal.h"
 #include <stdbool.h>
 
-// 按钮GPIO配置 - 根据实际硬件连接更新
-// 1楼
+// 按钮GPIO配置 - 实际硬件连接
+// 1楼 (只有上行)
 #define BUTTON_UP_1_GPIO_Port   GPIOC
-#define BUTTON_UP_1_Pin         GPIO_PIN_5    // PC5 (原来是1楼下行，现在改为1楼上行)
-#define BUTTON_DOWN_1_GPIO_Port GPIOC
-#define BUTTON_DOWN_1_Pin       GPIO_PIN_15   // PC15 (不使用，但保留定义避免编译错误)
+#define BUTTON_UP_1_Pin         GPIO_PIN_5    // PC5 - 1楼上行
 
-// 2楼
+// 2楼 (上行和下行)
 #define BUTTON_UP_2_GPIO_Port   GPIOC
-#define BUTTON_UP_2_Pin         GPIO_PIN_1    // PC1
+#define BUTTON_UP_2_Pin         GPIO_PIN_1    // PC1 - 2楼上行
 #define BUTTON_DOWN_2_GPIO_Port GPIOC
-#define BUTTON_DOWN_2_Pin       GPIO_PIN_0    // PC0
+#define BUTTON_DOWN_2_Pin       GPIO_PIN_0    // PC0 - 2楼下行
 
-// 3楼
+// 3楼 (上行和下行)
 #define BUTTON_UP_3_GPIO_Port   GPIOC
-#define BUTTON_UP_3_Pin         GPIO_PIN_3    // PC3
+#define BUTTON_UP_3_Pin         GPIO_PIN_3    // PC3 - 3楼上行
 #define BUTTON_DOWN_3_GPIO_Port GPIOC
-#define BUTTON_DOWN_3_Pin       GPIO_PIN_2    // PC2
+#define BUTTON_DOWN_3_Pin       GPIO_PIN_2    // PC2 - 3楼下行
+
+// 按钮总数
+#define NUM_BUTTONS 5  // 1楼上、2楼上、2楼下、3楼上、3楼下
 
 // 按钮类型
 typedef enum {
@@ -41,8 +42,9 @@ typedef struct {
     uint32_t last_press_time;
 } Button_t;
 
-// 按钮数组大小
-#define NUM_BUTTONS 6
+
+// 全局按钮数组（外部访问）
+extern Button_t buttons[NUM_BUTTONS];
 
 // 函数声明
 void Button_Init(void);
@@ -62,5 +64,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 
 // 调试函数
 uint32_t Button_GetInterruptCount(void);
+
+// 中断处理函数
+void Button_IRQHandler(uint8_t button_index);
 
 #endif /* __BUTTON_HANDLER_H */

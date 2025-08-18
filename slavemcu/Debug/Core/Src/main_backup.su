@@ -1,0 +1,5 @@
+../Core/Src/main_backup.c:62:5:main	120	static
+../Core/Src/main_backup.c:244:6:SystemClock_Config	72	static
+../Core/Src/main_backup.c:285:6:PhotoSensor_TriggerCallback	4	static
+../Core/Src/main_backup.c:295:6:HAL_GPIO_EXTI_Callback	16	static
+../Core/Src/main_backup.c:314:6:Error_Handler	4	static,ignoring_inline_asm

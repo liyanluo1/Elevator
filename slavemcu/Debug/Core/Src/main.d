@@ -22,12 +22,17 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h \
  ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h \
- ../Core/Inc/usart.h ../Core/Inc/main.h ../Core/Inc/gpio.h \
+ ../Core/Inc/dma.h ../Core/Inc/main.h ../Core/Inc/usart.h \
+ ../Core/Inc/gpio.h ../Core/Src/../Modules/keyboard/keyboard.h \
+ ../Core/Src/../Modules/photo_sensor/photo_sensor.h \
  ../Core/Src/../Modules/servo/servo.h \
- ../Core/Src/../Modules/servo/servo_control.h \
+ ../Core/Src/../Modules/servo/door_control.h \
  ../Core/Src/../Modules/servo/servo.h \
- ../Core/Src/../Modules/servo/servo_fsm.h \
- ../Core/Src/../Modules/LED/LED.h
+ ../Core/Src/../Modules/Local_BB/local_blackboard.h \
+ ../Core/Src/../Modules/RS485/rs485.h \
+ ../Core/Src/../Modules/RS485/rs485_config.h \
+ ../Core/Src/../Modules/RS485/rs485_protocol.h \
+ ../Core/Src/../Modules/RS485/rs485_test.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
@@ -52,11 +57,17 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_uart.h:
-../Core/Inc/usart.h:
+../Core/Inc/dma.h:
 ../Core/Inc/main.h:
+../Core/Inc/usart.h:
 ../Core/Inc/gpio.h:
+../Core/Src/../Modules/keyboard/keyboard.h:
+../Core/Src/../Modules/photo_sensor/photo_sensor.h:
 ../Core/Src/../Modules/servo/servo.h:
-../Core/Src/../Modules/servo/servo_control.h:
+../Core/Src/../Modules/servo/door_control.h:
 ../Core/Src/../Modules/servo/servo.h:
-../Core/Src/../Modules/servo/servo_fsm.h:
-../Core/Src/../Modules/LED/LED.h:
+../Core/Src/../Modules/Local_BB/local_blackboard.h:
+../Core/Src/../Modules/RS485/rs485.h:
+../Core/Src/../Modules/RS485/rs485_config.h:
+../Core/Src/../Modules/RS485/rs485_protocol.h:
+../Core/Src/../Modules/RS485/rs485_test.h:

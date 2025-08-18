@@ -24,8 +24,13 @@
       "Bash(make:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git clone:*)",
+      "Bash(del:*)",
+      "Bash(copy:*)",
+      "Bash(arm-none-eabi-gcc:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

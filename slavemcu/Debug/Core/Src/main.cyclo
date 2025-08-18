@@ -1,3 +1,12 @@
-../Core/Src/main.c:38:5:main	11
-../Core/Src/main.c:183:6:SystemClock_Config	3
-../Core/Src/main.c:226:6:Error_Handler	1
+../Core/Src/main.c:110:5:main	6
+../Core/Src/main.c:240:6:SystemClock_Config	3
+../Core/Src/main.c:280:6:ProcessKeyboard	6
+../Core/Src/main.c:324:6:ProcessPhotoSensor	13
+../Core/Src/main.c:392:6:ProcessRS485	9
+../Core/Src/main.c:444:6:ProcessDoorControl	10
+../Core/Src/main.c:498:6:SendPhotoSensorEvent	1
+../Core/Src/main.c:513:6:SendCabinCall	3
+../Core/Src/main.c:538:6:SendDoorStatus	2
+../Core/Src/main.c:554:6:PhotoSensor_TriggerCallback	1
+../Core/Src/main.c:564:6:HAL_GPIO_EXTI_Callback	3
+../Core/Src/main.c:582:6:Error_Handler	1

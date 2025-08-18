@@ -1,0 +1,7 @@
+../Core/Modules/RS485/rs485_protocol.c:11:6:RS485_Protocol_Init	2
+../Core/Modules/RS485/rs485_protocol.c:20:6:RS485_Protocol_ProcessPacket	17
+../Core/Modules/RS485/rs485_protocol.c:66:6:RS485_Protocol_SendPhotoSensor	1
+../Core/Modules/RS485/rs485_protocol.c:79:6:RS485_Protocol_SendDoorCommand	2
+../Core/Modules/RS485/rs485_protocol.c:91:6:RS485_Protocol_SendFloorCall	1
+../Core/Modules/RS485/rs485_protocol.c:103:6:RS485_Protocol_SendStatus	1
+../Core/Modules/RS485/rs485_protocol.c:117:6:RS485_Protocol_SendError	1
