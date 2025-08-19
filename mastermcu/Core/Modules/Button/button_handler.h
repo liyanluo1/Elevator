@@ -6,8 +6,8 @@
 
 // 按钮GPIO配置 - 实际硬件连接
 // 1楼 (只有上行)
-#define BUTTON_UP_1_GPIO_Port   GPIOC
-#define BUTTON_UP_1_Pin         GPIO_PIN_5    // PC5 - 1楼上行
+#define BUTTON_UP_1_GPIO_Port   GPIOA
+#define BUTTON_UP_1_Pin         GPIO_PIN_6    // PA6 - 1楼上行 (原PC5弃用)
 
 // 2楼 (上行和下行)
 #define BUTTON_UP_2_GPIO_Port   GPIOC

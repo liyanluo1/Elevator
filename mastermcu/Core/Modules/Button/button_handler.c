@@ -177,7 +177,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
         case GPIO_PIN_1:  Button_IRQHandler(1); break;  // PC1 - Floor 2 Up  
         case GPIO_PIN_2:  Button_IRQHandler(4); break;  // PC2 - Floor 3 Down
         case GPIO_PIN_3:  Button_IRQHandler(3); break;  // PC3 - Floor 3 Up
-        case GPIO_PIN_5:  Button_IRQHandler(0); break;  // PC5 - Floor 1 Up
+        case GPIO_PIN_6:  Button_IRQHandler(0); break;  // PA6 - Floor 1 Up (替代PC5)
     }
     // 中断结束 - 总时间 < 1us
 }

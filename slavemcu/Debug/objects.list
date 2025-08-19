@@ -3,7 +3,6 @@
 "./Core/Modules/RS485/rs485.o"
 "./Core/Modules/RS485/rs485_driver.o"
 "./Core/Modules/RS485/rs485_protocol.o"
-"./Core/Modules/RS485/rs485_test.o"
 "./Core/Modules/keyboard/keyboard.o"
 "./Core/Modules/photo_sensor/photo_sensor.o"
 "./Core/Modules/servo/door_control.o"

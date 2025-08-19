@@ -9,6 +9,9 @@
 /* 全局实例 */
 LocalBlackboard_t g_local_bb;
 
+/* 门控命令缓存 */
+static LocalBB_DoorCommand_t pending_door_cmd = DOOR_CMD_NONE;
+
 /* ==================== 初始化函数 ==================== */
 
 void LocalBB_Init(void) {
@@ -197,6 +200,13 @@ void LocalBB_Process(void) {
                         event.data2, event.data3);
                 break;
                 
+            case LOCAL_EVENT_DOOR_CMD:
+                /* 设置门控命令 */
+                pending_door_cmd = event.data1 ? DOOR_CMD_OPEN : DOOR_CMD_CLOSE;
+                printf("[LocalBB] Door command ready: %s\r\n", 
+                       pending_door_cmd == DOOR_CMD_OPEN ? "OPEN" : "CLOSE");
+                break;
+                
             default:
                 break;
         }
@@ -238,5 +248,15 @@ void LocalBB_PrintStatus(void) {
            g_local_bb.rs485_send_count);
     printf("Debug: %s\r\n", g_local_bb.debug_msg);
     printf("======================\r\n");
+}
+
+/* ==================== 门控命令接口 ==================== */
+
+LocalBB_DoorCommand_t LocalBB_GetDoorCommand(void) {
+    return pending_door_cmd;
+}
+
+void LocalBB_ClearDoorCommand(void) {
+    pending_door_cmd = DOOR_CMD_NONE;
 }
 

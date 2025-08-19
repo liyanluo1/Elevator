@@ -101,4 +101,14 @@ uint8_t LocalBB_GetDirection(void);
 /* 调试输出 */
 void LocalBB_PrintStatus(void);
 
+/* 门控命令接口 */
+typedef enum {
+    DOOR_CMD_NONE = 0,
+    DOOR_CMD_OPEN,
+    DOOR_CMD_CLOSE
+} LocalBB_DoorCommand_t;
+
+LocalBB_DoorCommand_t LocalBB_GetDoorCommand(void);
+void LocalBB_ClearDoorCommand(void);
+
 #endif /* __LOCAL_BLACKBOARD_H */

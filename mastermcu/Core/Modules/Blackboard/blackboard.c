@@ -16,6 +16,7 @@ void Blackboard_Init(void) {
     g_blackboard.state = STATE_IDLE;
     g_blackboard.current_floor = 1;  // 假设从1楼开始
     g_blackboard.target_floor = 1;
+    g_blackboard.next_target_floor = 0;  // 无下一个目标
     g_blackboard.direction = DIR_IDLE;
     g_blackboard.door_state = DOOR_CLOSED;
     
@@ -109,6 +110,7 @@ void Blackboard_ClearEvents(void) {
 /* ==================== 请求管理 ==================== */
 
 void Blackboard_AddUpCall(uint8_t floor) {
+    /* 1楼上行按钮已启用 */
     if (floor >= 1 && floor <= MAX_FLOORS - 1) {  // 3楼没有上行
         g_blackboard.up_calls[floor] = true;
         printf("[Blackboard] Up call added at floor %d\r\n", floor);
@@ -131,10 +133,25 @@ void Blackboard_AddCabinCall(uint8_t floor) {
 
 void Blackboard_ClearCall(uint8_t floor) {
     if (floor >= 1 && floor <= MAX_FLOORS) {
+        /* 打印清除前的状态 */
+        printf("[Blackboard] Clearing calls at floor %d (before: UP=%d, DOWN=%d, CABIN=%d)\r\n", 
+               floor,
+               g_blackboard.up_calls[floor],
+               g_blackboard.down_calls[floor],
+               g_blackboard.cabin_calls[floor]);
+        
         g_blackboard.up_calls[floor] = false;
         g_blackboard.down_calls[floor] = false;
         g_blackboard.cabin_calls[floor] = false;
-        printf("[Blackboard] Calls cleared at floor %d\r\n", floor);
+        
+        /* 打印清除后的状态 */
+        printf("[Blackboard] Calls cleared at floor %d (after: UP=%d, DOWN=%d, CABIN=%d)\r\n", 
+               floor,
+               g_blackboard.up_calls[floor],
+               g_blackboard.down_calls[floor],
+               g_blackboard.cabin_calls[floor]);
+    } else {
+        printf("[Blackboard] WARNING: Invalid floor %d for ClearCall\r\n", floor);
     }
 }
 
@@ -271,16 +288,17 @@ bool Blackboard_IsNearTarget(void) {
 void Blackboard_CalibratePosition(uint8_t floor) {
     if (floor < 1 || floor > MAX_FLOORS) return;
     
-    /* 校准电机位置到精确楼层位置（考虑编码器偏移） */
+    /* 计算理论位置和误差 */
     int32_t expected_pos = g_blackboard.encoder_offset + (floor - 1) * STEPS_PER_FLOOR;
     int32_t error = g_blackboard.motor_position - expected_pos;
     
-    if (abs(error) < 1000) {  // 只有误差小于1000步才校准
-        printf("[BB] Calibrating floor %d: error=%ld steps\r\n", floor, error);
-        g_blackboard.motor_position = expected_pos;
-    } else {
-        printf("[BB] Calibration error too large: %ld steps\r\n", error);
+    /* 仅记录误差，不修改位置（开环控制） */
+    if (abs(error) > 1000) {
+        printf("[BB] Position error at floor %d: %ld steps\r\n", floor, error);
     }
+    
+    /* 更新当前楼层 */
+    g_blackboard.current_floor = floor;
 }
 
 void Blackboard_SetEncoderOffset(int32_t offset) {

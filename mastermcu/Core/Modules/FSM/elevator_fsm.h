@@ -26,5 +26,6 @@ void FSM_StatePreparing(void);
 bool FSM_IsTimeout(uint32_t start_time, uint32_t timeout_ms);
 void FSM_SendDoorCommand(bool open);
 void FSM_SendDirectionCommand(Direction_t dir);
+void FSM_CheckAndStartMovement(void);
 
 #endif /* __ELEVATOR_FSM_H */

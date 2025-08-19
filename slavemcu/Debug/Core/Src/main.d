@@ -31,8 +31,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Core/Src/../Modules/Local_BB/local_blackboard.h \
  ../Core/Src/../Modules/RS485/rs485.h \
  ../Core/Src/../Modules/RS485/rs485_config.h \
- ../Core/Src/../Modules/RS485/rs485_protocol.h \
- ../Core/Src/../Modules/RS485/rs485_test.h
+ ../Core/Src/../Modules/RS485/rs485_protocol.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h:
 ../Core/Inc/stm32f1xx_hal_conf.h:
@@ -70,4 +69,3 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Core/Src/../Modules/RS485/rs485.h:
 ../Core/Src/../Modules/RS485/rs485_config.h:
 ../Core/Src/../Modules/RS485/rs485_protocol.h:
-../Core/Src/../Modules/RS485/rs485_test.h:

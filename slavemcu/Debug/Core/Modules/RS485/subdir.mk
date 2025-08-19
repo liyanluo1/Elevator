@@ -7,20 +7,17 @@
 C_SRCS += \
 ../Core/Modules/RS485/rs485.c \
 ../Core/Modules/RS485/rs485_driver.c \
-../Core/Modules/RS485/rs485_protocol.c \
-../Core/Modules/RS485/rs485_test.c 
+../Core/Modules/RS485/rs485_protocol.c 
 
 OBJS += \
 ./Core/Modules/RS485/rs485.o \
 ./Core/Modules/RS485/rs485_driver.o \
-./Core/Modules/RS485/rs485_protocol.o \
-./Core/Modules/RS485/rs485_test.o 
+./Core/Modules/RS485/rs485_protocol.o 
 
 C_DEPS += \
 ./Core/Modules/RS485/rs485.d \
 ./Core/Modules/RS485/rs485_driver.d \
-./Core/Modules/RS485/rs485_protocol.d \
-./Core/Modules/RS485/rs485_test.d 
+./Core/Modules/RS485/rs485_protocol.d 
 
 
 # Each subdirectory must supply rules for building sources it contributes
@@ -30,7 +27,7 @@ Core/Modules/RS485/%.o Core/Modules/RS485/%.su Core/Modules/RS485/%.cyclo: ../Co
 clean: clean-Core-2f-Modules-2f-RS485
 
 clean-Core-2f-Modules-2f-RS485:
-	-$(RM) ./Core/Modules/RS485/rs485.cyclo ./Core/Modules/RS485/rs485.d ./Core/Modules/RS485/rs485.o ./Core/Modules/RS485/rs485.su ./Core/Modules/RS485/rs485_driver.cyclo ./Core/Modules/RS485/rs485_driver.d ./Core/Modules/RS485/rs485_driver.o ./Core/Modules/RS485/rs485_driver.su ./Core/Modules/RS485/rs485_protocol.cyclo ./Core/Modules/RS485/rs485_protocol.d ./Core/Modules/RS485/rs485_protocol.o ./Core/Modules/RS485/rs485_protocol.su ./Core/Modules/RS485/rs485_test.cyclo ./Core/Modules/RS485/rs485_test.d ./Core/Modules/RS485/rs485_test.o ./Core/Modules/RS485/rs485_test.su
+	-$(RM) ./Core/Modules/RS485/rs485.cyclo ./Core/Modules/RS485/rs485.d ./Core/Modules/RS485/rs485.o ./Core/Modules/RS485/rs485.su ./Core/Modules/RS485/rs485_driver.cyclo ./Core/Modules/RS485/rs485_driver.d ./Core/Modules/RS485/rs485_driver.o ./Core/Modules/RS485/rs485_driver.su ./Core/Modules/RS485/rs485_protocol.cyclo ./Core/Modules/RS485/rs485_protocol.d ./Core/Modules/RS485/rs485_protocol.o ./Core/Modules/RS485/rs485_protocol.su
 
 .PHONY: clean-Core-2f-Modules-2f-RS485
 

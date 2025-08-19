@@ -59,6 +59,7 @@ typedef enum {
     EVENT_PHOTO_SENSOR,     // 光电传感器触发
     EVENT_ARRIVED,          // 到达目标位置
     EVENT_TIMER_EXPIRED,    // 定时器到期
+    EVENT_TIMEOUT,          // 超时事件
     EVENT_DOOR_CMD_DONE     // 门命令完成
 } EventType_t;
 
@@ -79,6 +80,7 @@ typedef struct {
     /* 位置信息 */
     uint8_t current_floor;      // 当前楼层 (1-3)
     uint8_t target_floor;       // 目标楼层 (1-3)
+    uint8_t next_target_floor;  // 下一个目标楼层（中途停靠后继续）
     Direction_t direction;      // 运行方向
     int32_t motor_position;     // 电机当前位置
     int32_t encoder_offset;     // 编码器偏移

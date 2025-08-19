@@ -35,7 +35,6 @@ extern UART_HandleTypeDef huart2;
 #include "../Modules/Local_BB/local_blackboard.h"
 #include "../Modules/RS485/rs485.h"
 #include "../Modules/RS485/rs485_protocol.h"
-#include "../Modules/RS485/rs485_test.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -49,6 +48,8 @@ extern UART_HandleTypeDef huart2;
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define MAX_FLOORS 3
+#define PHOTO_SENSOR_DEBOUNCE_MS 200   // 光电防抖时间
+#define KEYBOARD_DEBOUNCE_MS     50    // 按键防抖时间
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -70,11 +71,13 @@ static struct {
     uint32_t rs485_rx_count;     // RS485接收计数
     uint32_t rs485_tx_count;     // RS485发送计数
     uint32_t door_cmd_count;     // 门控命令计数
+    uint32_t last_photo_time;    // 上次光电触发时间
 } system_state = {
     .current_floor = 1,
     .direction = DIR_STOP,
     .target_floor = 1,
-    .door_is_open = false
+    .door_is_open = false,
+    .last_photo_time = 0
 };
 
 /* 光电传感器状态 */
@@ -139,7 +142,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   
   printf("\r\n=== SLAVE MCU - ELEVATOR CONTROL SYSTEM ===\r\n");
-  printf("Keyboard + Photo Sensor + Door Control\r\n\r\n");
+  printf("Full Control with Door Module Enabled\r\n");
+  printf("Features: Cabin Calls + Photo Sensor + RS485 + Door Control\r\n\r\n");
   
   /* 初始化RS485通信 */
   rs485_init();
@@ -160,11 +164,14 @@ int main(void)
   printf("[PHOTO] Initialized (PB5 EXTI) - State: %s\r\n", 
          initial_state == PHOTO_SENSOR_BLOCKED ? "BLOCKED" : "CLEAR");
   
-  /* 初始化舵机门控系统 - 暂时禁用 */
-  // servo_init(&huart1);  // 使用USART1控制舵机
-  // DoorControl_Init(&door_controller, 0);  // 使用舵机ID 0
-  // DoorControl_Close(&door_controller);  // 初始关门
-  printf("[DOOR] DISABLED for testing\r\n");
+  /* 验证初始状态 */
+  if (initial_state != PHOTO_SENSOR_BLOCKED) {
+      printf("[WARNING] Photo sensor should be BLOCKED at floor 1!\r\n");
+      printf("         Please check elevator position.\r\n");
+  }
+  
+  /* 初始化舵机门控系统 */
+  DoorControl_Init(&door_controller);
   
   /* 初始化Local Blackboard - 中央事件管理 */
   LocalBB_Init();
@@ -177,11 +184,13 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t last_status_time = 0;
-  uint32_t last_door_update = 0;
+  uint32_t last_photo_time = 0;  // 光电防抖
   
   while (1)
   {
     uint32_t current_time = HAL_GetTick();
+    
+    /* 测试模式已禁用，使用按键测试 */
     
     /* 处理键盘输入 */
     ProcessKeyboard();
@@ -192,11 +201,12 @@ int main(void)
     /* 处理RS485接收 */
     ProcessRS485();
     
-    /* 处理门控（每50ms更新） - 暂时禁用 */
-    // if (current_time - last_door_update >= 50) {
-    //     last_door_update = current_time;
-    //     ProcessDoorControl();
-    // }
+    /* 处理门控（每50ms更新） */
+    static uint32_t last_door_update = 0;
+    if (current_time - last_door_update >= 50) {
+        last_door_update = current_time;
+        ProcessDoorControl();
+    }
     
     /* 处理LocalBB事件队列 */
     LocalBB_Process();
@@ -311,11 +321,19 @@ void ProcessKeyboard(void) {
 }
 
 /**
-  * @brief  处理光电传感器
+  * @brief  处理光电传感器 - 增强版带防抖和智能楼层检测
   */
 void ProcessPhotoSensor(void) {
+    uint32_t current_time = HAL_GetTick();
+    
     if (sensor_triggered) {
         sensor_triggered = false;
+        
+        /* 防抖处理 */
+        if (current_time - system_state.last_photo_time < PHOTO_SENSOR_DEBOUNCE_MS) {
+            return;  // 忽略抖动
+        }
+        system_state.last_photo_time = current_time;
         
         photo_sensor_state_t current_state = PhotoSensor_GetState();
         
@@ -325,49 +343,41 @@ void ProcessPhotoSensor(void) {
             
             system_state.photo_count++;
             
-            /* 根据移动方向判断到达的楼层 */
-            uint8_t detected_floor = 0;
+            /* 智能楼层检测 - 基于方向和当前楼层 */
+            uint8_t detected_floor = system_state.current_floor;
             
             if (system_state.direction == DIR_UP) {
-                /* 上行时，预测下一个楼层 */
-                if (system_state.current_floor < system_state.target_floor) {
-                    detected_floor = system_state.current_floor + 1;
-                } else {
-                    detected_floor = system_state.target_floor;
+                /* 上行：检测到的是下一个楼层 */
+                detected_floor = system_state.current_floor + 1;
+                if (detected_floor > MAX_FLOORS) {
+                    detected_floor = MAX_FLOORS;
                 }
             }
             else if (system_state.direction == DIR_DOWN) {
-                /* 下行时，预测下一个楼层 */
-                if (system_state.current_floor > system_state.target_floor) {
-                    detected_floor = system_state.current_floor - 1;
-                } else {
-                    detected_floor = system_state.target_floor;
+                /* 下行：检测到的是下一个楼层 */
+                detected_floor = system_state.current_floor - 1;
+                if (detected_floor < 1) {
+                    detected_floor = 1;
                 }
             }
-            else {
-                /* 停止状态，保持当前楼层 */
-                detected_floor = system_state.current_floor;
-            }
+            /* 如果静止，保持当前楼层不变 */
             
-            /* 确保楼层在有效范围内 */
-            if (detected_floor < 1) detected_floor = 1;
-            if (detected_floor > MAX_FLOORS) detected_floor = MAX_FLOORS;
-            
-            printf("[PHOTO #%lu] Floor %d detected (Dir=%s)\r\n",
+            printf("[PHOTO #%lu] Floor %d detected (Dir=%s, Prev=%d)\r\n",
                    system_state.photo_count, detected_floor,
                    system_state.direction == DIR_UP ? "UP" :
-                   system_state.direction == DIR_DOWN ? "DN" : "STOP");
+                   system_state.direction == DIR_DOWN ? "DN" : "STOP",
+                   system_state.current_floor);
             
-            /* 发送光电传感器事件给Master */
+            /* 立即发送光电传感器事件给Master */
             SendPhotoSensorEvent(detected_floor);
             
             /* 更新当前楼层 */
             system_state.current_floor = detected_floor;
             
-            /* 如果到达目标楼层，停止 */
+            /* 如果到达目标楼层，更新状态 */
             if (detected_floor == system_state.target_floor) {
-                system_state.direction = DIR_STOP;
-                printf("[PHOTO] Target floor reached, stopping\r\n");
+                printf("[PHOTO] Target floor %d reached!\r\n", detected_floor);
+                /* Master会处理停止，Slave只报告 */
             }
             
             /* 通过LocalBB处理 */
@@ -437,27 +447,21 @@ void ProcessDoorControl(void) {
     /* 更新门控制器状态 */
     DoorControl_Update(&door_controller);
     
-    /* 简化的门控制逻辑 - 根据系统状态控制门 */
-    static uint32_t door_open_time = 0;
-    
-    /* 如果停止且到达目标楼层，开门 */
-    if (system_state.direction == DIR_STOP && 
-        system_state.current_floor == system_state.target_floor &&
-        !system_state.door_is_open) {
-        printf("[DOOR] Auto opening at floor %d\r\n", system_state.current_floor);
-        DoorControl_Open(&door_controller);
-        system_state.door_is_open = true;
-        door_open_time = HAL_GetTick();
-        SendDoorStatus(true);
-    }
-    
-    /* 自动关门（开门3秒后） */
-    if (system_state.door_is_open && 
-        (HAL_GetTick() - door_open_time > 3000)) {
-        printf("[DOOR] Auto closing after 3s\r\n");
-        DoorControl_Close(&door_controller);
-        system_state.door_is_open = false;
-        SendDoorStatus(false);
+    /* 处理来自LocalBB的门控命令 */
+    LocalBB_DoorCommand_t door_cmd = LocalBB_GetDoorCommand();
+    if (door_cmd != DOOR_CMD_NONE) {
+        if (door_cmd == DOOR_CMD_OPEN) {
+            printf("[DOOR] Command: OPEN\r\n");
+            DoorControl_Open(&door_controller);
+            system_state.door_is_open = true;
+            SendDoorStatus(true);
+        } else if (door_cmd == DOOR_CMD_CLOSE) {
+            printf("[DOOR] Command: CLOSE\r\n");
+            DoorControl_Close(&door_controller);
+            system_state.door_is_open = false;
+            SendDoorStatus(false);
+        }
+        LocalBB_ClearDoorCommand();
     }
     
     /* 检查门状态变化 */
@@ -470,10 +474,14 @@ void ProcessDoorControl(void) {
         switch (door_state) {
             case DOOR_STATE_OPEN:
                 printf("[DOOR] Fully opened\r\n");
+                system_state.door_is_open = true;
+                SendDoorStatus(true);
                 break;
                 
             case DOOR_STATE_CLOSED:
                 printf("[DOOR] Fully closed\r\n");
+                system_state.door_is_open = false;
+                SendDoorStatus(false);
                 break;
                 
             case DOOR_STATE_OPENING:
@@ -563,6 +571,25 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
         // PB5 中断 - 光电传感器
         PhotoSensor_IRQHandler();
     }
+}
+
+/**
+  * @brief  UART TX DMA完成回调
+  */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    extern void rs485_tx_complete_callback(void);
+    if (huart == &huart2) {
+        rs485_tx_complete_callback();
+    }
+}
+
+/**
+  * @brief  UART RX DMA完成回调  
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    // DMA循环模式下不需要处理
 }
 
 /* USER CODE END 4 */

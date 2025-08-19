@@ -30,7 +30,6 @@
 #include "../Modules/Blackboard/blackboard.h"
 #include "../Modules/FSM/elevator_fsm.h"
 #include "../Modules/RS485/rs485_protocol.h"
-#include "../Modules/RS485/rs485_test.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -40,14 +39,15 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define MAX_FLOORS          3
-#define STEPS_PER_FLOOR     10800
-#define STOP_THRESHOLD      300
-#define PREPARING_TIME_MS   1000   // PREPARING状态持续时间
-#define DOOR_OPEN_TIME_MS   3000   // 开门持续时间
+#define STEPS_PER_FLOOR     10800      // 每层步数
+#define STOP_THRESHOLD      300        // 停止阈值（未使用）
+#define DOOR_SIMULATION_MS  2000       // 模拟开关门时间（第一阶段测试）
+#define NORMAL_SPEED        500        // 正常运行速度
 /* USER CODE END PD */
 
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_uart5_rx;
@@ -57,6 +57,7 @@ DMA_HandleTypeDef hdma_uart5_tx;
 StepperMotor_t stepper;
 static uint32_t last_display_time = 0;
 static uint32_t last_status_time = 0;
+extern uint32_t door_operation_start;  // FSM中的门操作开始时间
 /* USER CODE END PV */
 
 /* Function prototypes -------------------------------------------------------*/
@@ -65,13 +66,16 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_UART5_Init(void);
+static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
 
 /* USER CODE BEGIN PFP */
 void ProcessButtons(void);
 void ProcessRS485(void);
 void UpdateOLEDDisplay(void);
+void UpdateOLEDRxCount(uint32_t total, uint32_t cabin);
 void ProcessStepperControl(void);
+void USART2_SendString(const char* str);
 /* USER CODE END PFP */
 
 int main(void)
@@ -85,6 +89,7 @@ int main(void)
   MX_DMA_Init();
   MX_CAN1_Init();
   MX_UART5_Init();
+  MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   
   /* USER CODE BEGIN 2 */
@@ -97,12 +102,21 @@ int main(void)
   Display_Update();
   HAL_Delay(500);
   
+  /* 测试USART2调试输出 */
+  USART2_SendString("\r\n=== USART2 DEBUG PORT ACTIVATED ===\r\n");
+  USART2_SendString("PA2 (TX) / PA3 (RX) @ 115200\r\n");
+  USART2_SendString("This is a secondary debug channel\r\n\r\n");
+  
   printf("\r\n=== MASTER MCU - ELEVATOR CONTROL SYSTEM ===\r\n");
-  printf("FSM + SCAN Scheduling Algorithm\r\n\r\n");
+  printf("FSM + SCAN Scheduling Algorithm\r\n");
+  printf("USART2 (PA2/PA3) enabled for additional debug\r\n\r\n");
   
   /* 初始化RS485通信 */
   rs485_init();
-  printf("[RS485] Initialized on UART5\r\n");
+  Display_Clear();
+  Display_Text(0, 0, "RS485 Init OK");
+  Display_Update();
+  HAL_Delay(500);
   
   /* 初始化按钮 */
   Button_Init();
@@ -141,10 +155,16 @@ int main(void)
     }
   }
   
+  /* 设置初始位置 - 假设从1楼开始，光电被触发 */
+  printf("\r\n[INIT] System starts at floor 1 (photo sensor triggered)\r\n");
+  
   /* 设置编码器偏移到Blackboard */
   Blackboard_SetEncoderOffset(stepper.current_position);
-  g_blackboard.current_floor = 1;  // 假设从1楼开始
+  g_blackboard.current_floor = 1;  // 从1楼开始
   g_blackboard.motor_position = stepper.current_position;
+  
+  /* 电机速度使用默认值 */
+  printf("[STEPPER] Using default speed\r\n");
   
   printf("[INIT] System ready\r\n");
   printf("  Encoder offset: %ld\r\n", g_blackboard.encoder_offset);
@@ -155,12 +175,16 @@ int main(void)
   }
   
   printf("\r\n[CONTROLS]\r\n");
-  printf("  1UP (PC5): Floor 1 Up Call\r\n");
+  printf("  1UP (PA6): Floor 1 Up Call (Changed from PC5)\r\n");
   printf("  2UP (PC1): Floor 2 Up Call\r\n");  
   printf("  2DN (PC0): Floor 2 Down Call\r\n");
   printf("  3DN (PC2): Floor 3 Down Call\r\n");
   printf("  * Cabin calls from Slave MCU keyboard\r\n");
   printf("\r\nSystem running...\r\n\r\n");
+  
+  /* 清除初始化信息，显示运行状态 */
+  Display_Clear();
+  UpdateOLEDDisplay();
   
   /* USER CODE END 2 */
 
@@ -175,8 +199,63 @@ int main(void)
     StepperMotor_Update(&stepper);
     g_blackboard.motor_position = stepper.current_position;
     
+    /* 检测电机是否到达目标并停止 */
+    static bool was_moving = false;
+    bool is_moving = StepperMotor_IsMoving(&stepper);
+    if (was_moving && !is_moving && g_blackboard.state == STATE_MOVING) {
+      /* 电机刚停止，清除目标楼层呼叫 */
+      if (g_blackboard.target_floor > 0 && g_blackboard.target_floor <= MAX_FLOORS) {
+        printf("[MAIN] Motor stopped at target floor %d, clearing calls\r\n", 
+               g_blackboard.target_floor);
+        
+        /* 同时输出到USART2 */
+        char debug_msg[100];
+        sprintf(debug_msg, "[USART2] Motor stop detected, clearing F%d calls\r\n", 
+                g_blackboard.target_floor);
+        USART2_SendString(debug_msg);
+        
+        /* 清除呼叫 */
+        Blackboard_ClearCall(g_blackboard.target_floor);
+        
+        /* 强制更新当前楼层（因为光电可能没触发） */
+        g_blackboard.current_floor = g_blackboard.target_floor;
+        sprintf(debug_msg, "[USART2] Force update current floor to %d\r\n", 
+                g_blackboard.current_floor);
+        USART2_SendString(debug_msg);
+        
+        /* 清零target_floor，表示已到达 */
+        g_blackboard.target_floor = g_blackboard.current_floor;
+        
+        /* 转到门操作状态（非阻塞） */
+        Blackboard_SetState(STATE_DOOR_OPERATING);
+        door_operation_start = HAL_GetTick();
+        
+        sprintf(debug_msg, "[USART2] Starting door operation\r\n");
+        USART2_SendString(debug_msg);
+      }
+    }
+    was_moving = is_moving;
+    
     /* 处理按钮输入（楼层外呼） */
     ProcessButtons();
+    
+    /* 每500ms输出一次状态到USART2 */
+    static uint32_t last_usart2_time = 0;
+    if (current_time - last_usart2_time >= 500) {
+        last_usart2_time = current_time;
+        char status_msg[100];
+        sprintf(status_msg, "[U2] S:%d F:%d->%d C:%d%d%d H:%d%d%d\r\n",
+                g_blackboard.state,
+                g_blackboard.current_floor,
+                g_blackboard.target_floor,
+                g_blackboard.cabin_calls[1],
+                g_blackboard.cabin_calls[2],
+                g_blackboard.cabin_calls[3],
+                g_blackboard.up_calls[1] || g_blackboard.down_calls[1],
+                g_blackboard.up_calls[2] || g_blackboard.down_calls[2],
+                g_blackboard.up_calls[3] || g_blackboard.down_calls[3]);
+        USART2_SendString(status_msg);
+    }
     
     /* 处理RS485接收（内呼和光电信号） */
     ProcessRS485();
@@ -214,24 +293,52 @@ int main(void)
   */
 void ProcessButtons(void) {
     static bool button_pressed[NUM_BUTTONS] = {false};
+    static bool first_scan = true;
+    
+    /* 第一次扫描时，记录初始状态，避免误触发 */
+    if (first_scan) {
+        first_scan = false;
+        for (int i = 0; i < NUM_BUTTONS; i++) {
+            Button_t* btn = &buttons[i];
+            GPIO_PinState state = HAL_GPIO_ReadPin(btn->port, btn->pin);
+            button_pressed[i] = (state == GPIO_PIN_RESET);  // 记录初始状态
+        }
+        return;  // 第一次只记录，不处理
+    }
     
     for (int i = 0; i < NUM_BUTTONS; i++) {
         Button_t* btn = &buttons[i];
+        
+        /* 1楼上行按钮已启用 - 移除禁用代码 */
+        // 正常处理所有按钮
+        
         GPIO_PinState state = HAL_GPIO_ReadPin(btn->port, btn->pin);
         
         if (state == GPIO_PIN_RESET && !button_pressed[i]) {
             button_pressed[i] = true;
             
-            /* 处理楼层外呼 */
+            /* 处理楼层外呼 - 推送事件到队列 */
             if (btn->type == BUTTON_TYPE_UP) {
                 printf("\r\n[BUTTON] Floor %d UP call\r\n", btn->floor);
-                Blackboard_AddUpCall(btn->floor);
-                Blackboard_PushEvent(EVENT_BUTTON_PRESS, btn->floor);
+                
+                /* USART2调试 */
+                char btn_msg[50];
+                sprintf(btn_msg, "[U2-BTN] F%d UP pressed\r\n", btn->floor);
+                USART2_SendString(btn_msg);
+                
+                /* 事件驱动：推送事件，由FSM处理 */
+                Blackboard_PushEvent(EVENT_BUTTON_UP, btn->floor);
             }
             else if (btn->type == BUTTON_TYPE_DOWN) {
                 printf("\r\n[BUTTON] Floor %d DOWN call\r\n", btn->floor);
-                Blackboard_AddDownCall(btn->floor);
-                Blackboard_PushEvent(EVENT_BUTTON_PRESS, btn->floor);
+                
+                /* USART2调试 */
+                char btn_msg[50];
+                sprintf(btn_msg, "[U2-BTN] F%d DOWN pressed\r\n", btn->floor);
+                USART2_SendString(btn_msg);
+                
+                /* 事件驱动：推送事件，由FSM处理 */
+                Blackboard_PushEvent(EVENT_BUTTON_DOWN, btn->floor);
             }
         }
         else if (state == GPIO_PIN_SET) {
@@ -244,55 +351,38 @@ void ProcessButtons(void) {
   * @brief  处理RS485接收
   */
 void ProcessRS485(void) {
+    static uint32_t total_rx_count = 0;
+    static uint32_t cabin_rx_count = 0;
+    
     uint8_t rx_buffer[64];
     uint16_t rx_len = rs485_receive_packet(rx_buffer, sizeof(rx_buffer));
     
     if (rx_len > 0) {
-        printf("\r\n[RS485 DEBUG] Received %d bytes: ", rx_len);
-        for(int i = 0; i < rx_len && i < 8; i++) {
-            printf("0x%02X ", rx_buffer[i]);
-        }
-        printf("\r\n");
+        total_rx_count++;
+        
+        /* 更新OLED显示的计数器 */
+        UpdateOLEDRxCount(total_rx_count, cabin_rx_count);
         /* 光电传感器触发命令 */
         if (rx_buffer[0] == CMD_PHOTO_SENSOR && rx_len >= 2) {
             uint8_t floor = rx_buffer[1];
             printf("\r\n[RS485 RX] Photo sensor floor %d\r\n", floor);
             
-            /* 推送光电传感器事件 */
+            /* 事件驱动：推送光电传感器事件 */
             Blackboard_PushEvent(EVENT_PHOTO_SENSOR, floor);
-            
-            /* 如果正在移动且到达目标楼层，让FSM处理停止 */
-            if (g_blackboard.state == STATE_MOVING && 
-                floor == g_blackboard.target_floor) {
-                FSM_HandlePhotoSensor(floor);
-            }
-            /* 校准当前楼层位置 */
-            else if (g_blackboard.state == STATE_MOVING) {
-                printf("[PHOTO] Passing floor %d\r\n", floor);
-                g_blackboard.current_floor = floor;
-                Blackboard_CalibratePosition(floor);
-            }
         }
         /* 轿厢内呼命令 */
         else if (rx_buffer[0] == CMD_CABIN_CALL && rx_len >= 2) {
             uint8_t floor = rx_buffer[1];
-            printf("\r\n========================================\r\n");
-            printf("[RS485 RX] CABIN CALL received!\r\n");
-            printf("  Floor: %d\r\n", floor);
-            printf("  Current floor: %d\r\n", g_blackboard.current_floor);
-            printf("  Current state: %s\r\n", Blackboard_GetStateName(g_blackboard.state));
-            printf("========================================\r\n");
+            cabin_rx_count++;
             
-            Blackboard_AddCabinCall(floor);
+            printf("\r\n[RS485 RX] Cabin call floor %d (total cabin calls: %lu)\r\n", floor, cabin_rx_count);
+            
+            /* 事件驱动：推送内呼事件 */
             Blackboard_PushEvent(EVENT_CABIN_CALL, floor);
             
-            /* 立即更新OLED显示 */
+            /* 更新计数并立即显示 */
+            UpdateOLEDRxCount(total_rx_count, cabin_rx_count);
             UpdateOLEDDisplay();
-            
-            /* 如果在IDLE状态，立即触发FSM处理 */
-            if (g_blackboard.state == STATE_IDLE) {
-                printf("[RS485] Triggering FSM from IDLE for cabin call\r\n");
-            }
         }
         /* 门状态反馈 */
         else if (rx_buffer[0] == CMD_DOOR_STATUS && rx_len >= 2) {
@@ -334,22 +424,36 @@ void ProcessStepperControl(void) {
                     uint8_t target_floor = (uint8_t)Blackboard_GetMotorCommandParam();
                     int32_t target_pos = Blackboard_GetTargetPosition(target_floor);
                     printf("[MOTOR] Move to floor %d (position %ld)\r\n", target_floor, target_pos);
-                    StepperMotor_MoveAbsolute(&stepper, target_pos);
                     
-                    /* 发送方向信息给Slave */
-                    uint8_t direction = (target_pos > stepper.current_position) ? DIR_UP : DIR_DOWN;
-                    uint8_t tx_buffer[4];
-                    tx_buffer[0] = CMD_DIRECTION_SET;
-                    tx_buffer[1] = direction;
-                    tx_buffer[2] = g_blackboard.current_floor;
-                    tx_buffer[3] = target_floor;
-                    rs485_send_packet_dma(tx_buffer, 4);
+                    /* 如果已经在目标位置附近（300步内），直接清除呼叫 */
+                    if (abs(stepper.current_position - target_pos) < 300) {
+                        printf("[MOTOR] Already near floor %d, clearing calls\r\n", target_floor);
+                        Blackboard_ClearCall(target_floor);
+                        /* 不需要移动 */
+                    } else {
+                        StepperMotor_MoveAbsolute(&stepper, target_pos);
+                        
+                        /* 发送方向信息给Slave */
+                        uint8_t direction = (target_pos > stepper.current_position) ? DIR_UP : DIR_DOWN;
+                        uint8_t tx_buffer[4];
+                        tx_buffer[0] = CMD_DIRECTION_SET;
+                        tx_buffer[1] = direction;
+                        tx_buffer[2] = g_blackboard.current_floor;
+                        tx_buffer[3] = target_floor;
+                        rs485_send_packet_dma(tx_buffer, 4);
+                    }
                 }
                 break;
                 
             case MOTOR_CMD_STOP:
                 printf("[MOTOR] Stop\r\n");
                 StepperMotor_Stop(&stepper);
+                
+                /* 电机停止时清除目标楼层的呼叫，避免光电未触发导致的死循环 */
+                if (g_blackboard.target_floor > 0 && g_blackboard.target_floor <= MAX_FLOORS) {
+                    printf("[MOTOR] Clearing calls at target floor %d\r\n", g_blackboard.target_floor);
+                    Blackboard_ClearCall(g_blackboard.target_floor);
+                }
                 
                 /* 通知Slave停止 */
                 uint8_t tx_buffer[4];
@@ -370,68 +474,104 @@ void ProcessStepperControl(void) {
     }
 }
 
+/* 全局计数器用于OLED显示 */
+static uint32_t g_total_rx_count = 0;
+static uint32_t g_cabin_rx_count = 0;
+
+/**
+  * @brief  更新OLED接收计数
+  */
+void UpdateOLEDRxCount(uint32_t total, uint32_t cabin) {
+    g_total_rx_count = total;
+    g_cabin_rx_count = cabin;
+}
+
 /**
   * @brief  更新OLED显示
   */
 void UpdateOLEDDisplay(void) {
-    char line1[20], line2[32], line3[20], line4[20];
+    char line1[20], line2[32], line4[20];
     
     Display_Clear();
     
-    /* 第1行：状态和楼层 */
-    const char* state_str = Blackboard_GetStateName(g_blackboard.state);
-    if (g_blackboard.state == STATE_MOVING) {
-        sprintf(line1, "%s F%d->F%d", state_str,
-                g_blackboard.current_floor, g_blackboard.target_floor);
-    } else {
-        sprintf(line1, "%s Floor %d", state_str, g_blackboard.current_floor);
-    }
+    /* 第1行：楼层和状态 */
+    sprintf(line1, "F%d %s", g_blackboard.current_floor, 
+            g_blackboard.state == STATE_IDLE ? "IDLE" : 
+            g_blackboard.state == STATE_MOVING ? "MOVE" : "DOOR");
     Display_Text(0, 0, line1);
     
-    /* 第2行：内呼状态（优先显示） */
-    char cabin_calls[12] = "";
-    char hall_calls[12] = "";
-    
-    /* 收集内呼 */
+    /* 第2行：内呼显示和接收计数 */
+    char cabin_str[20] = "C:";
+    int has_cabin = 0;
     for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
         if (g_blackboard.cabin_calls[f]) {
             char temp[3];
-            sprintf(temp, "%d ", f);
-            strcat(cabin_calls, temp);
+            sprintf(temp, "%d", f);
+            strcat(cabin_str, temp);
+            has_cabin = 1;
         }
     }
-    
-    /* 收集外呼 */
-    for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
-        if (g_blackboard.up_calls[f] || g_blackboard.down_calls[f]) {
-            char temp[3];
-            sprintf(temp, "%d ", f);
-            strcat(hall_calls, temp);
-        }
+    if (!has_cabin) {
+        strcat(cabin_str, "-");
     }
-    
-    if (strlen(cabin_calls) > 0 || strlen(hall_calls) > 0) {
-        sprintf(line2, "C:%s H:%s", 
-                strlen(cabin_calls) > 0 ? cabin_calls : "-",
-                strlen(hall_calls) > 0 ? hall_calls : "-");
-    } else {
-        sprintf(line2, "No calls");
-    }
+    sprintf(line2, "%s RX:%lu", cabin_str, g_cabin_rx_count);
     Display_Text(0, 16, line2);
     
-    /* 第3行：位置信息 */
-    sprintf(line3, "Pos:%ld", g_blackboard.motor_position);
-    Display_Text(0, 32, line3);
+    /* 第3行：外呼显示 - 更详细 */
+    char hall_str[32] = "H:";
+    int has_hall = 0;
+    for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
+        if (g_blackboard.up_calls[f]) {
+            char temp[4];
+            sprintf(temp, "%d^", f);  // 上箭头表示上行
+            strcat(hall_str, temp);
+            has_hall = 1;
+        }
+        if (g_blackboard.down_calls[f]) {
+            char temp[4];
+            sprintf(temp, "%dv", f);  // 下箭头表示下行
+            strcat(hall_str, temp);
+            has_hall = 1;
+        }
+    }
+    if (!has_hall) {
+        strcat(hall_str, "-");
+    }
+    Display_Text(0, 32, hall_str);
     
-    /* 第4行：方向和门状态 */
-    const char* dir_str = (g_blackboard.direction == DIR_UP) ? "UP" :
-                         (g_blackboard.direction == DIR_DOWN) ? "DN" : "--";
-    const char* door_str = (g_blackboard.door_state == DOOR_OPEN) ? "OPEN" :
-                          (g_blackboard.door_state == DOOR_CLOSED) ? "CLOSE" : "MOVE";
-    sprintf(line4, "Dir:%s Door:%s", dir_str, door_str);
+    /* 第4行：RS485调试信息 */
+    sprintf(line4, "485RX:%lu", g_total_rx_count);
     Display_Text(0, 48, line4);
     
     Display_Update();
+}
+
+/**
+  * @brief  UART TX DMA完成回调
+  */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    extern void rs485_tx_complete_callback(void);
+    if (huart == &huart5) {
+        rs485_tx_complete_callback();
+    }
+}
+
+/**
+  * @brief  UART RX DMA完成回调
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    // DMA循环模式下不需要处理
+}
+
+/**
+  * @brief  发送字符串到USART2调试端口
+  * @param  str: 要发送的字符串
+  */
+void USART2_SendString(const char* str)
+{
+    HAL_UART_Transmit(&huart2, (uint8_t*)str, strlen(str), 100);
 }
 
 /* USER CODE END 4 */
@@ -508,6 +648,22 @@ static void MX_UART5_Init(void)
   }
 }
 
+static void MX_USART2_UART_Init(void)
+{
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
 static void MX_USART3_UART_Init(void)
 {
   huart3.Instance = USART3;
@@ -564,11 +720,17 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
   
-  /* Configure button pins: PC0, PC1, PC2, PC3, PC5 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_5;
+  /* Configure button pins: PC0, PC1, PC2, PC3 (PC5已弃用) */
+  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  
+  /* Configure PA6 for Floor 1 UP button (替代原PC5) */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 }
 
 void Error_Handler(void)
