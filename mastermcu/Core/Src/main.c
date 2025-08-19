@@ -104,10 +104,6 @@ int main(void)
   rs485_init();
   printf("[RS485] Initialized on UART5\r\n");
   
-  /* 初始化RS485测试模块 */
-  RS485_Test_Init();
-  RS485_Test_SetMode(TEST_MODE_SIMPLE);  // 开始简单测试
-  
   /* 初始化按钮 */
   Button_Init();
   printf("[BUTTON] Initialized\r\n");
@@ -174,9 +170,6 @@ int main(void)
   while (1)
   {
     uint32_t current_time = HAL_GetTick();
-    
-    /* 运行RS485测试 */
-    RS485_Test_Process();
     
     /* 更新步进电机状态 */
     StepperMotor_Update(&stepper);
@@ -293,6 +286,9 @@ void ProcessRS485(void) {
             Blackboard_AddCabinCall(floor);
             Blackboard_PushEvent(EVENT_CABIN_CALL, floor);
             
+            /* 立即更新OLED显示 */
+            UpdateOLEDDisplay();
+            
             /* 如果在IDLE状态，立即触发FSM处理 */
             if (g_blackboard.state == STATE_IDLE) {
                 printf("[RS485] Triggering FSM from IDLE for cabin call\r\n");
@@ -378,7 +374,7 @@ void ProcessStepperControl(void) {
   * @brief  更新OLED显示
   */
 void UpdateOLEDDisplay(void) {
-    char line1[20], line2[20], line3[20], line4[20];
+    char line1[20], line2[32], line3[20], line4[20];
     
     Display_Clear();
     
@@ -392,25 +388,32 @@ void UpdateOLEDDisplay(void) {
     }
     Display_Text(0, 0, line1);
     
-    /* 第2行：呼叫状态 */
-    char calls[20] = "";
-    int call_count = 0;
+    /* 第2行：内呼状态（优先显示） */
+    char cabin_calls[12] = "";
+    char hall_calls[12] = "";
+    
+    /* 收集内呼 */
     for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
-        if (g_blackboard.up_calls[f]) {
-            sprintf(calls + strlen(calls), "%d^ ", f);
-            call_count++;
-        }
-        if (g_blackboard.down_calls[f]) {
-            sprintf(calls + strlen(calls), "%dv ", f);
-            call_count++;
-        }
         if (g_blackboard.cabin_calls[f]) {
-            sprintf(calls + strlen(calls), "%d* ", f);
-            call_count++;
+            char temp[3];
+            sprintf(temp, "%d ", f);
+            strcat(cabin_calls, temp);
         }
     }
-    if (call_count > 0) {
-        sprintf(line2, "Call:%s", calls);
+    
+    /* 收集外呼 */
+    for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
+        if (g_blackboard.up_calls[f] || g_blackboard.down_calls[f]) {
+            char temp[3];
+            sprintf(temp, "%d ", f);
+            strcat(hall_calls, temp);
+        }
+    }
+    
+    if (strlen(cabin_calls) > 0 || strlen(hall_calls) > 0) {
+        sprintf(line2, "C:%s H:%s", 
+                strlen(cabin_calls) > 0 ? cabin_calls : "-",
+                strlen(hall_calls) > 0 ? hall_calls : "-");
     } else {
         sprintf(line2, "No calls");
     }

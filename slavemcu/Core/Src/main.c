@@ -145,11 +145,6 @@ int main(void)
   rs485_init();
   printf("[RS485] Initialized on USART2\r\n");
   
-  /* 初始化RS485测试模块 */
-  //RS485_Test_Init();
-  //RS485_Test_SetMode(TEST_MODE_PROTOCOL);  // 协议测试模式
-  //RS485_Test_SetEcho(1);  // 开启回显
-  
   /* 初始化键盘 - 中断模式 */
   Keyboard_Init();
   printf("[KEYBOARD] Initialized (PA11 EXTI)\r\n");
@@ -187,9 +182,6 @@ int main(void)
   while (1)
   {
     uint32_t current_time = HAL_GetTick();
-    
-    /* 运行RS485测试 */
-    RS485_Test_Process();
     
     /* 处理键盘输入 */
     ProcessKeyboard();

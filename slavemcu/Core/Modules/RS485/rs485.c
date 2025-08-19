@@ -40,11 +40,8 @@ rs485_status_t rs485_init(void)
     /* Clear DMA buffer */
     memset(rs485_dma_rx_buffer, 0, RS485_DMA_RX_BUFFER_SIZE);
     
-    /* Start DMA reception in circular mode */
+    /* Start DMA reception (already configured as circular in HAL_MspInit) */
     HAL_UART_Receive_DMA(rs485_driver.huart, rs485_dma_rx_buffer, RS485_DMA_RX_BUFFER_SIZE);
-    
-    /* Set DMA to circular mode (STM32F1 style) */
-    // rs485_driver.huart->hdmarx->Instance->CCR |= DMA_CCR_CIRC;
     
     /* Enable IDLE interrupt */
      __HAL_UART_ENABLE_IT(rs485_driver.huart, UART_IT_IDLE);

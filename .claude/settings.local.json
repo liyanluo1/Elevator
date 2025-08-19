@@ -28,7 +28,8 @@
       "Bash(git clone:*)",
       "Bash(del:*)",
       "Bash(copy:*)",
-      "Bash(arm-none-eabi-gcc:*)"
+      "Bash(arm-none-eabi-gcc:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"
