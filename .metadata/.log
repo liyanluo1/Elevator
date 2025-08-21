@@ -3398,3 +3398,15 @@ java.lang.Exception: localhost:61234: Connection timed out.
 
 !ENTRY com.st.stm32cube.ide.mcu.debug 4 0 2025-08-21 18:42:23.646
 !MESSAGE Existing sessions are:
+
+!ENTRY com.st.stm32cube.ide.mcu.debug 4 0 2025-08-21 21:42:36.336
+!MESSAGE Error - No active DSF-Session. tmpSessionId = 237 (contextManager row 121)
+
+!ENTRY com.st.stm32cube.ide.mcu.debug 4 0 2025-08-21 21:42:36.338
+!MESSAGE Existing sessions are:
+
+!ENTRY com.st.stm32cube.ide.mcu.debug 4 0 2025-08-21 21:42:36.339
+!MESSAGE Error - No active DSF-Session. tmpSessionId = 237 (contextManager row 121)
+
+!ENTRY com.st.stm32cube.ide.mcu.debug 4 0 2025-08-21 21:42:36.340
+!MESSAGE Existing sessions are:

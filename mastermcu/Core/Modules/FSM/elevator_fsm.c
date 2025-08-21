@@ -214,25 +214,30 @@ void FSM_HandleCabinCall(uint8_t floor) {
             return;
         }
         
-        printf("[FSM] Same floor cabin call, opening door\r\n");
+        /* 只在IDLE状态下处理同层内呼 - 与外呼逻辑一致 */
+        if (g_blackboard.state == STATE_IDLE) {
+            printf("[FSM] Same floor cabin call in IDLE, clearing calls and opening door\r\n");
+            
+            /* 与外呼逻辑一致：先清除呼叫，再开门 */
+            Blackboard_ClearCall(floor);
+            
+            /* 强制重置文件级静态变量 */
+            door_command_sent = false;
+            
+            /* 进入门操作状态 */
+            Blackboard_SetState(STATE_DOOR_OPERATING);
+            door_operation_start = HAL_GetTick();
+            g_blackboard.door_state = DOOR_CLOSED;
+            sprintf(g_blackboard.debug_msg, "SameFloor-CAB F%d", floor);
+            
+            printf("[FSM] Door operation started\r\n");
+            return;  // 同层开门后直接返回
+        }
         
-        /* 不要立即清除呼叫，让门操作完成后清除 */
-        /* Blackboard_ClearCall(floor); -- 移除这行 */
-        
-        /* 添加呼叫标记，让门操作知道要清除 */
-        Blackboard_AddCabinCall(floor);
-        
-        /* 强制重置文件级静态变量 */
-        door_command_sent = false;
-        
-        /* 进入门操作状态 */
-        Blackboard_SetState(STATE_DOOR_OPERATING);
-        door_operation_start = HAL_GetTick();
-        g_blackboard.door_state = DOOR_CLOSED;
-        sprintf(g_blackboard.debug_msg, "SameFloor-CAB F%d", floor);
-        
-        printf("[FSM] Door operation started\r\n");
-        return;  // 同层开门后直接返回
+        /* 其他状态不处理同层内呼 */
+        printf("[FSM] Same floor cabin call but not in IDLE (state=%s), ignoring\r\n",
+               Blackboard_GetStateName(g_blackboard.state));
+        return;
     }
     
     /* 不是同层，添加呼叫 */
