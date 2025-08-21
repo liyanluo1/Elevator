@@ -18,10 +18,10 @@
 #define KEYBOARD_COL4_PIN       GPIO_PIN_4     // PA4 -> S16 -> Floor 1
 
 // 键盘参数
-#define KEYBOARD_DEBOUNCE_TIME  100     // 去抖时间（ms） - 增加到100ms
-#define KEYBOARD_SCAN_PERIOD    20      // 扫描周期（ms）
+#define KEYBOARD_DEBOUNCE_TIME  5       // 去抖时间（ms） - 降低到5ms
+#define KEYBOARD_SCAN_PERIOD    5       // 扫描周期（ms） - 降低到5ms
 #define KEYBOARD_BUFFER_SIZE    8       // 键值缓冲区大小
-#define KEYBOARD_RELEASE_TIME   200     // 按键释放确认时间（ms）
+#define KEYBOARD_RELEASE_TIME   10      // 按键释放确认时间（ms） - 降低到10ms
 
 // 键值定义 - Elevator car call buttons
 #define KEY_NONE                0

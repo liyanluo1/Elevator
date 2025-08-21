@@ -354,19 +354,19 @@ void ProcessKeyboard(void) {
         switch(key) {
             case KEY_S16:  // Floor 1
                 printf("S16 -> Floor 1 call\r\n");
-                SendCabinCall(1);
+                // 只使用LocalBB处理，避免重复发送
                 LocalBB_AddCabinCall(1);
                 break;
                 
             case KEY_S15:  // Floor 2
                 printf("S15 -> Floor 2 call\r\n");
-                SendCabinCall(2);
+                // 只使用LocalBB处理，避免重复发送
                 LocalBB_AddCabinCall(2);
                 break;
                 
             case KEY_S14:  // Floor 3
                 printf("S14 -> Floor 3 call\r\n");
-                SendCabinCall(3);
+                // 只使用LocalBB处理，避免重复发送
                 LocalBB_AddCabinCall(3);
                 break;
                 

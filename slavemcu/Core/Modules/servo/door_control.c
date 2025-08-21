@@ -18,6 +18,7 @@ void DoorControl_Init(DoorControl_t *door, uint8_t servo_id) {
     /* 初始化舵机 */
     servo_set_speed(servo_id, 500);
     servo_set_torque_enable(servo_id, 1);
+    // 初始化时使用HAL_Delay可以接受（不在中断中）
     HAL_Delay(100);
     
     /* 读取当前位置 */
@@ -77,10 +78,10 @@ void DoorControl_Open(DoorControl_t *door) {
                door->current_pos, DOOR_POS_OPEN, 
                (int)DOOR_POS_OPEN - (int)door->current_pos);
         
-        /* 添加小延时确保之前的通信完成 */
-        HAL_Delay(5);
+        /* 使用循环延时避免阻塞 */
+        for(volatile int i = 0; i < 50000; i++);  // 短延时
         servo_set_position(door->servo_id, DOOR_POS_OPEN);
-        HAL_Delay(5);  /* 给舵机时间处理命令 */
+        for(volatile int i = 0; i < 50000; i++);  // 给舵机时间处理命令
         
         door->target_pos = DOOR_POS_OPEN;
         door->state = DOOR_STATE_OPENING;
@@ -106,10 +107,10 @@ void DoorControl_Close(DoorControl_t *door) {
                door->current_pos, DOOR_POS_CLOSED, 
                (int)DOOR_POS_CLOSED - (int)door->current_pos);
         
-        /* 添加小延时确保之前的通信完成 */
-        HAL_Delay(5);
+        /* 使用循环延时避免阻塞 */
+        for(volatile int i = 0; i < 50000; i++);  // 短延时
         servo_set_position(door->servo_id, DOOR_POS_CLOSED);
-        HAL_Delay(5);  /* 给舵机时间处理命令 */
+        for(volatile int i = 0; i < 50000; i++);  // 给舵机时间处理命令
         
         door->target_pos = DOOR_POS_CLOSED;
         door->state = DOOR_STATE_CLOSING;
@@ -142,7 +143,7 @@ void DoorControl_Update(DoorControl_t *door) {
                 break;
             }
         }
-        HAL_Delay(2);  /* 短暂延时后重试 */
+        for(volatile int i = 0; i < 20000; i++);  /* 短暂延时后重试 */
     }
     
     uint16_t old_pos = door->current_pos;
@@ -177,7 +178,7 @@ void DoorControl_Update(DoorControl_t *door) {
                 break;
             }
         }
-        HAL_Delay(2);  /* 短暂延时后重试 */
+        for(volatile int i = 0; i < 20000; i++);  /* 短暂延时后重试 */
     }
     
     if (!flag_valid) {

@@ -100,13 +100,13 @@ typedef struct {
     uint8_t event_tail;
     uint8_t event_count;
     
-    /* 电机控制命令 */
-    MotorCommand_t motor_command;      // 当前电机命令
-    int32_t motor_command_param;       // 命令参数
+    /* 电机控制命令 - 多处访问需要volatile */
+    volatile MotorCommand_t motor_command;      // 当前电机命令
+    volatile int32_t motor_command_param;       // 命令参数
     
     /* 调试信息 */
     char debug_msg[32];
-    uint32_t last_photo_floor;  // 最后光电检测楼层
+    volatile uint32_t last_photo_floor;  // 最后光电检测楼层
     
     /* 统计信息 */
     uint32_t total_trips;

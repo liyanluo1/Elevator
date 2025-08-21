@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "../Modules/Stepper/stepper_motor.h"
 #include "../Modules/oled/oled.h"
+#include "../Modules/oled/oled_display.h"  // 新增OLED显示模块
 #include "../Modules/CAN/can.h"
 #include "../Modules/RS485/rs485.h"
 #include "../Modules/Button/button_handler.h"
@@ -94,12 +95,8 @@ int main(void)
   
   /* USER CODE BEGIN 2 */
   
-  /* 初始化OLED */
-  Display_Init();
-  Display_Clear();
-  Display_Text(0, 0, "ELEVATOR SYSTEM");
-  Display_Text(0, 16, "Initializing...");
-  Display_Update();
+  /* 初始化OLED显示模块 */
+  OLED_Display_Init();  // 使用新的显示模块
   HAL_Delay(500);
   
   /* 测试USART2调试输出 */
@@ -113,10 +110,7 @@ int main(void)
   
   /* 初始化RS485通信 */
   rs485_init();
-  Display_Clear();
-  Display_Text(0, 0, "RS485 Init OK");
-  Display_Update();
-  HAL_Delay(500);
+  printf("[RS485] Initialized\r\n");
   
   /* 初始化按钮 */
   Button_Init();
@@ -278,7 +272,7 @@ int main(void)
       Blackboard_PrintStatus();
     }
     
-    HAL_Delay(10);
+    // 移除HAL_Delay(10) - 避免阻塞主循环
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -492,60 +486,11 @@ void UpdateOLEDRxCount(uint32_t total, uint32_t cabin) {
   * @brief  更新OLED显示
   */
 void UpdateOLEDDisplay(void) {
-    char line1[20], line2[32], line4[20];
-    
-    Display_Clear();
-    
-    /* 第1行：楼层和状态 */
-    sprintf(line1, "F%d %s", g_blackboard.current_floor, 
-            g_blackboard.state == STATE_IDLE ? "IDLE" : 
-            g_blackboard.state == STATE_MOVING ? "MOVE" : "DOOR");
-    Display_Text(0, 0, line1);
-    
-    /* 第2行：内呼显示和接收计数 */
-    char cabin_str[20] = "C:";
-    int has_cabin = 0;
-    for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
-        if (g_blackboard.cabin_calls[f]) {
-            char temp[3];
-            sprintf(temp, "%d", f);
-            strcat(cabin_str, temp);
-            has_cabin = 1;
-        }
-    }
-    if (!has_cabin) {
-        strcat(cabin_str, "-");
-    }
-    sprintf(line2, "%s RX:%lu", cabin_str, g_cabin_rx_count);
-    Display_Text(0, 16, line2);
-    
-    /* 第3行：外呼显示 - 更详细 */
-    char hall_str[32] = "H:";
-    int has_hall = 0;
-    for (uint8_t f = 1; f <= MAX_FLOORS; f++) {
-        if (g_blackboard.up_calls[f]) {
-            char temp[4];
-            sprintf(temp, "%d^", f);  // 上箭头表示上行
-            strcat(hall_str, temp);
-            has_hall = 1;
-        }
-        if (g_blackboard.down_calls[f]) {
-            char temp[4];
-            sprintf(temp, "%dv", f);  // 下箭头表示下行
-            strcat(hall_str, temp);
-            has_hall = 1;
-        }
-    }
-    if (!has_hall) {
-        strcat(hall_str, "-");
-    }
-    Display_Text(0, 32, hall_str);
-    
-    /* 第4行：RS485调试信息 */
-    sprintf(line4, "485RX:%lu", g_total_rx_count);
-    Display_Text(0, 48, line4);
-    
-    Display_Update();
+    /* 使用新的OLED显示接口 */
+    OLED_Display_Update(g_blackboard.current_floor,
+                        g_blackboard.cabin_calls,
+                        g_blackboard.up_calls,
+                        g_blackboard.down_calls);
 }
 
 /**
@@ -685,9 +630,10 @@ static void MX_USART3_UART_Init(void)
 static void MX_DMA_Init(void)
 {
   __HAL_RCC_DMA1_CLK_ENABLE();
-  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  /* DMA优先级低于GPIO，避免打断按钮处理 */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 2, 0);  // DMA - 低优先级
   HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
-  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 }
 
@@ -734,16 +680,16 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
   
-  /* Enable and set EXTI line Interrupt to the lowest priority */
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 2, 0);
+  /* 中断优先级配置 - GPIO优先级高于DMA，避免数据竞争 */
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 1, 0);  // 按钮中断 - 高优先级
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-  HAL_NVIC_SetPriority(EXTI2_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(EXTI2_IRQn);
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 1, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 }
 

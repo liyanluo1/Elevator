@@ -79,6 +79,8 @@ void FSM_Process(void) {
             break;
             
         case STATE_DOOR_OPERATING:
+            /* 调试输出 */
+            printf("[FSM_Process] Calling FSM_StateDoorOperating, door_command_sent=%d\r\n", door_command_sent);
             FSM_StateDoorOperating();
             break;
             
@@ -96,7 +98,48 @@ void FSM_Process(void) {
 
 void FSM_HandleButtonUp(uint8_t floor) {
     /* 1楼上行按钮已启用 */
-    printf("[FSM] Button UP pressed at floor %d\r\n", floor);
+    printf("[FSM] Button UP pressed at floor %d (current floor: %d, state: %s)\r\n", 
+           floor, g_blackboard.current_floor, Blackboard_GetStateName(g_blackboard.state));
+    
+    /* 如果按的是当前楼层 */
+    if (floor == g_blackboard.current_floor) {
+        /* 如果电梯空闲，直接开门 */
+        if (g_blackboard.state == STATE_IDLE) {
+        printf("[FSM] Same floor UP button pressed, clearing any existing calls and opening door\r\n");
+        
+        /* 清除该楼层所有呼叫（避免重复执行） - 必须在状态切换前 */
+        printf("[FSM] Before ClearCall: UP=%d, DOWN=%d, CABIN=%d\r\n", 
+               g_blackboard.up_calls[floor], g_blackboard.down_calls[floor], g_blackboard.cabin_calls[floor]);
+        Blackboard_ClearCall(floor);
+        printf("[FSM] After ClearCall: UP=%d, DOWN=%d, CABIN=%d\r\n", 
+               g_blackboard.up_calls[floor], g_blackboard.down_calls[floor], g_blackboard.cabin_calls[floor]);
+        
+        /* 强制重置文件级静态变量 - 关键修复 */
+        door_command_sent = false;  // 必须在SetState之前重置
+        
+        /* 进入门操作状态 */
+        Blackboard_SetState(STATE_DOOR_OPERATING);
+        door_operation_start = HAL_GetTick();
+        g_blackboard.door_state = DOOR_CLOSED;
+        sprintf(g_blackboard.debug_msg, "SameFloor-UP F%d", floor);
+        
+        printf("[FSM] Door operation started, door_command_sent forcefully reset to %d\r\n", door_command_sent);
+        printf("[FSM] door_operation_start set to %lu\r\n", door_operation_start);
+        printf("[FSM] Current state: %s\r\n", Blackboard_GetStateName(g_blackboard.state));
+        }
+        /* 如果电梯已经在门操作状态，忽略此次按钮 */
+        else if (g_blackboard.state == STATE_DOOR_OPERATING) {
+            printf("[FSM] Same floor button pressed but door already operating, ignoring\r\n");
+        }
+        /* 如果电梯在移动或其他状态，不处理同层按钮 */
+        else {
+            printf("[FSM] Same floor button pressed but elevator busy (state=%s), ignoring\r\n",
+                   Blackboard_GetStateName(g_blackboard.state));
+        }
+        return;  // 同层按钮总是直接返回，不添加呼叫
+    }
+    
+    /* 不是同层，添加呼叫 */
     Blackboard_AddUpCall(floor);
     
     /* 如果电梯空闲，触发状态机检查 */
@@ -107,23 +150,96 @@ void FSM_HandleButtonUp(uint8_t floor) {
 }
 
 void FSM_HandleButtonDown(uint8_t floor) {
-    printf("[FSM] Button DOWN pressed at floor %d\r\n", floor);
+    printf("[FSM] Button DOWN pressed at floor %d (current floor: %d, state: %s)\r\n", 
+           floor, g_blackboard.current_floor, Blackboard_GetStateName(g_blackboard.state));
+    
+    /* 如果按的是当前楼层 */
+    if (floor == g_blackboard.current_floor) {
+        /* 如果电梯空闲，直接开门 */
+        if (g_blackboard.state == STATE_IDLE) {
+        printf("[FSM] Same floor DOWN button pressed, clearing any existing calls and opening door\r\n");
+        
+        /* 清除该楼层所有呼叫（避免重复执行） - 必须在状态切换前 */
+        Blackboard_ClearCall(floor);
+        
+        /* 强制重置文件级静态变量 - 关键修复 */
+        door_command_sent = false;  // 必须在SetState之前重置
+        
+        /* 进入门操作状态 */
+        Blackboard_SetState(STATE_DOOR_OPERATING);
+        door_operation_start = HAL_GetTick();
+        g_blackboard.door_state = DOOR_CLOSED;
+        sprintf(g_blackboard.debug_msg, "SameFloor-DN F%d", floor);
+        
+        printf("[FSM] Door operation started, door_command_sent forcefully reset to %d\r\n", door_command_sent);
+        printf("[FSM] door_operation_start set to %lu\r\n", door_operation_start);
+        }
+        /* 如果电梯已经在门操作状态，忽略此次按钮 */
+        else if (g_blackboard.state == STATE_DOOR_OPERATING) {
+            printf("[FSM] Same floor button pressed but door already operating, ignoring\r\n");
+        }
+        /* 如果电梯在移动或其他状态，不处理同层按钮 */
+        else {
+            printf("[FSM] Same floor button pressed but elevator busy (state=%s), ignoring\r\n",
+                   Blackboard_GetStateName(g_blackboard.state));
+        }
+        return;  // 同层按钮总是直接返回，不添加呼叫
+    }
+    
+    /* 不是同层或不是空闲状态，添加呼叫 */
     Blackboard_AddDownCall(floor);
     
     /* 如果电梯空闲，触发状态机检查 */
     if (g_blackboard.state == STATE_IDLE) {
-        /* 直接触发响应，不再推送事件 */
         FSM_CheckAndStartMovement();
     }
 }
 
 void FSM_HandleCabinCall(uint8_t floor) {
-    printf("[FSM] Cabin call for floor %d\r\n", floor);
+    printf("[FSM] Cabin call for floor %d (current floor: %d, state: %s)\r\n", 
+           floor, g_blackboard.current_floor, Blackboard_GetStateName(g_blackboard.state));
+    
+    /* 如果按的是当前楼层，优先处理开门（不管什么状态） */
+    if (floor == g_blackboard.current_floor) {
+        /* 检查是否已经在门操作状态 */
+        if (g_blackboard.state == STATE_DOOR_OPERATING) {
+            printf("[FSM] Already in door operation, ignoring same floor call\r\n");
+            return;  // 已经在开门，忽略
+        }
+        
+        /* 如果在移动状态，不处理同层呼叫 */
+        if (g_blackboard.state == STATE_MOVING) {
+            printf("[FSM] In moving state, adding cabin call for later\r\n");
+            Blackboard_AddCabinCall(floor);
+            return;
+        }
+        
+        printf("[FSM] Same floor cabin call, opening door\r\n");
+        
+        /* 不要立即清除呼叫，让门操作完成后清除 */
+        /* Blackboard_ClearCall(floor); -- 移除这行 */
+        
+        /* 添加呼叫标记，让门操作知道要清除 */
+        Blackboard_AddCabinCall(floor);
+        
+        /* 强制重置文件级静态变量 */
+        door_command_sent = false;
+        
+        /* 进入门操作状态 */
+        Blackboard_SetState(STATE_DOOR_OPERATING);
+        door_operation_start = HAL_GetTick();
+        g_blackboard.door_state = DOOR_CLOSED;
+        sprintf(g_blackboard.debug_msg, "SameFloor-CAB F%d", floor);
+        
+        printf("[FSM] Door operation started\r\n");
+        return;  // 同层开门后直接返回
+    }
+    
+    /* 不是同层，添加呼叫 */
     Blackboard_AddCabinCall(floor);
     
     /* 如果电梯空闲，触发状态机检查 */
     if (g_blackboard.state == STATE_IDLE) {
-        /* 直接触发响应，不再推送事件 */
         FSM_CheckAndStartMovement();
     }
 }
@@ -155,9 +271,9 @@ void FSM_HandlePhotoSensor(uint8_t floor) {
             /* 立即停止电机 */
             Blackboard_SetMotorCommand(MOTOR_CMD_STOP, 0);
             
-            /* 清除该楼层的所有呼叫 */
-            printf("[FSM] Clearing ALL calls at target floor %d\r\n", floor);
-            Blackboard_ClearCall(floor);
+            /* 不要立即清除，等门操作完成后清除 */
+            printf("[FSM] Will clear calls at target floor %d after door operation\r\n", floor);
+            /* Blackboard_ClearCall(floor); -- 移到门操作完成后 */
             
             /* 发送停止方向命令 */
             FSM_SendDirectionCommand(DIR_STOP);
@@ -197,22 +313,9 @@ void FSM_HandlePhotoSensor(uint8_t floor) {
                 /* 停止电机 */
                 Blackboard_SetMotorCommand(MOTOR_CMD_STOP, 0);
                 
-                /* 清除适当的呼叫 */
-                if (g_blackboard.direction == DIR_UP) {
-                    if (g_blackboard.up_calls[floor]) {
-                        g_blackboard.up_calls[floor] = false;
-                        printf("[FSM] Cleared UP call at floor %d\r\n", floor);
-                    }
-                } else if (g_blackboard.direction == DIR_DOWN) {
-                    if (g_blackboard.down_calls[floor]) {
-                        g_blackboard.down_calls[floor] = false;
-                        printf("[FSM] Cleared DOWN call at floor %d\r\n", floor);
-                    }
-                }
-                if (g_blackboard.cabin_calls[floor]) {
-                    g_blackboard.cabin_calls[floor] = false;
-                    printf("[FSM] Cleared CABIN call at floor %d\r\n", floor);
-                }
+                /* 不要立即清除，等门操作完成后清除 */
+                printf("[FSM] Will clear calls at intermediate floor %d after door operation\r\n", floor);
+                /* 原来的清除逻辑移到门操作完成后 */
                 
                 /* 转到门操作状态（非阻塞） */
                 printf("[FSM] Starting intermediate door operation\r\n");
@@ -314,8 +417,8 @@ void FSM_CheckAndStartMovement(void) {
             sprintf(check_msg, "[U2-CHECK] Already at F%d, door op\r\n", g_blackboard.current_floor);
             HAL_UART_Transmit(&huart2, (uint8_t*)check_msg, strlen(check_msg), 100);
             
-            /* 清除呼叫 */
-            Blackboard_ClearCall(g_blackboard.current_floor);
+            /* 不要立即清除呼叫，等门操作完成后清除 */
+            /* Blackboard_ClearCall(g_blackboard.current_floor); -- 移除这行 */
             
             /* 直接进入门操作状态 */
             Blackboard_SetState(STATE_DOOR_OPERATING);
@@ -331,20 +434,31 @@ void FSM_StateMoving(void) {
     /* 简化版：移除了位置预判逻辑 */
     /* 中途停靠已由FSM_HandlePhotoSensor处理 */
     
-    /* 超时保护：如果运行时间过长，可能有问题 */
+    /* 增强的超时保护 */
     uint32_t elapsed = HAL_GetTick() - g_blackboard.state_enter_time;
-    uint32_t max_time = abs(g_blackboard.target_floor - g_blackboard.current_floor) * 5000 + 5000;
+    uint32_t floors_to_travel = abs(g_blackboard.target_floor - g_blackboard.current_floor);
+    uint32_t max_time = floors_to_travel * 5000 + 10000;  // 每层5秒 + 10秒余量
     
     if (elapsed > max_time) {
-        printf("[FSM] WARNING: Movement timeout! Stopping.\r\n");
-        printf("  Current: F%d, Target: F%d, Time: %lu ms\r\n", 
-               g_blackboard.current_floor, g_blackboard.target_floor, elapsed);
+        printf("[FSM] ERROR: Movement timeout! Emergency stop\r\n");
+        printf("  Current: F%d, Target: F%d, Time: %lu ms, Max: %lu ms\r\n", 
+               g_blackboard.current_floor, g_blackboard.target_floor, elapsed, max_time);
         
-        /* 超时停止 */
+        /* 紧急停止 */
         Blackboard_SetMotorCommand(MOTOR_CMD_EMERGENCY_STOP, 0);
-        FSM_SendDirectionCommand(DIR_IDLE);
+        FSM_SendDirectionCommand(DIR_STOP);
+        
+        /* 清除目标楼层的呼叫，避免重复尝试 */
+        if (g_blackboard.target_floor > 0 && g_blackboard.target_floor <= MAX_FLOORS) {
+            Blackboard_ClearCall(g_blackboard.target_floor);
+            printf("[FSM] Cleared call at target floor %d due to timeout\r\n", g_blackboard.target_floor);
+        }
+        
         Blackboard_SetState(STATE_IDLE);
-        sprintf(g_blackboard.debug_msg, "TIMEOUT!");
+        sprintf(g_blackboard.debug_msg, "MOV TIMEOUT!");
+        
+        /* 推送超时事件 */
+        Blackboard_PushEvent(EVENT_TIMEOUT, g_blackboard.current_floor);
     }
     
     /* 状态显示更新 */
@@ -360,19 +474,54 @@ void FSM_StateDoorOperating(void) {
     static uint32_t last_state_enter_time = 0;
     static uint32_t door_open_time = 0;  // 门完全打开的时间
     static bool close_command_sent = false;
+    static bool first_call = true;  // 标记是否第一次调用
     
-    /* 检测状态变化，重置静态变量 */
-    if (g_blackboard.state_enter_time != last_state_enter_time) {
+    /* 调试输出：每次进入函数时的状态 */
+    static uint32_t call_count = 0;
+    call_count++;
+    if (call_count % 10 == 1) {  // 每10次调用打印一次
+        printf("[DOOR_DEBUG] Call#%lu: elapsed=%lu, door_cmd_sent=%d, last_enter=%lu, curr_enter=%lu\r\n",
+               call_count, elapsed, door_command_sent, last_state_enter_time, g_blackboard.state_enter_time);
+    }
+    
+    /* 超时保护 - 最长15秒 */
+    #define DOOR_OPERATION_TIMEOUT_MS 15000
+    if (elapsed > DOOR_OPERATION_TIMEOUT_MS) {
+        printf("[FSM] ERROR: Door operation timeout! Force completing\r\n");
+        /* 强制完成门操作 */
+        g_blackboard.door_state = DOOR_CLOSED;
+        door_command_sent = false;
+        Blackboard_SetState(STATE_IDLE);
+        sprintf(g_blackboard.debug_msg, "Door timeout!");
+        /* 推送到达事件，继续处理其他呼叫 */
+        Blackboard_PushEvent(EVENT_ARRIVED, g_blackboard.current_floor);
+        return;
+    }
+    
+    /* 检测状态变化，重置静态变量 - 修复：添加首次调用检测 */
+    if (first_call || g_blackboard.state_enter_time != last_state_enter_time) {
+        if (first_call) {
+            printf("\r\n[FSM] === FIRST CALL TO STATE_DOOR_OPERATING ===\r\n");
+            first_call = false;
+        } else {
+            printf("\r\n[FSM] === STATE CHANGE DETECTED ===\r\n");
+        }
+        printf("[FSM] Previous enter time: %lu, New enter time: %lu\r\n", 
+               last_state_enter_time, g_blackboard.state_enter_time);
+        
         last_state_enter_time = g_blackboard.state_enter_time;
         
-        /* 重置所有函数内静态变量 */
+        /* 重置所有静态变量（包括文件级静态变量） */
         door_open_time = 0;
         close_command_sent = false;
+        door_command_sent = false;  // 重要：重置文件级静态变量
         
-        printf("\r\n[FSM] === ENTERED STATE_DOOR_OPERATING ===\r\n");
+        printf("[FSM] === ENTERED STATE_DOOR_OPERATING ===\r\n");
         printf("[FSM] Entry tick: %lu, door_state: %d\r\n", last_state_enter_time, g_blackboard.door_state);
-        printf("[FSM] door_command_sent: %d\r\n", door_command_sent);
+        printf("[FSM] door_command_sent reset to false\r\n");
         printf("[FSM] Static vars reset: door_open_time=0, close_command_sent=false\r\n");
+        printf("[FSM] door_operation_start = %lu\r\n", door_operation_start);
+        printf("=====================================\r\n");
     }
     
     /* USART2调试 - 每500ms输出一次 */
@@ -395,11 +544,13 @@ void FSM_StateDoorOperating(void) {
     if (!door_command_sent) {
         /* 发送开门命令 */
         printf("[FSM] >>> SENDING DOOR OPEN COMMAND <<<\r\n");
+        printf("[FSM] door_command_sent is false, sending open command now\r\n");
         FSM_SendDoorCommand(true);
         door_command_sent = true;
         close_command_sent = false;
         sprintf(g_blackboard.debug_msg, "Sent open cmd");
         printf("[FSM] Door open command sent at tick %lu\r\n", HAL_GetTick());
+        printf("[FSM] door_command_sent now set to true\r\n");
         
         /* 假设门正在开启 */
         g_blackboard.door_state = DOOR_OPENING;
@@ -439,6 +590,10 @@ void FSM_StateDoorOperating(void) {
         
         /* 重置门控制命令标志 */
         door_command_sent = false;
+        
+        /* 现在清除当前楼层的呼叫（门操作完成后） */
+        printf("[FSM] Clearing calls at current floor %d after door operation\r\n", g_blackboard.current_floor);
+        Blackboard_ClearCall(g_blackboard.current_floor);
         
         /* USART2调试 */
         extern UART_HandleTypeDef huart2;

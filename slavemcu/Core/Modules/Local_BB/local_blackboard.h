@@ -7,7 +7,7 @@
 /* ==================== 常量定义 ==================== */
 #define MAX_FLOORS          3
 #define MAX_EVENT_QUEUE     16
-#define DEBOUNCE_TIME_MS    100   // 防抖时间
+#define DEBOUNCE_TIME_MS    3     // 防抖时间 - 降低到3ms
 #define MIN_RESEND_TIME_MS  500   // 最小重发间隔
 
 /* ==================== 枚举定义 ==================== */
@@ -44,19 +44,19 @@ typedef struct {
 typedef struct {
     /* ===== 事件队列 ===== */
     LocalEvent_t event_queue[MAX_EVENT_QUEUE];
-    uint8_t event_head;
-    uint8_t event_tail;
-    uint8_t event_count;
+    volatile uint8_t event_head;     // volatile - 中断和主循环都会访问
+    volatile uint8_t event_tail;
+    volatile uint8_t event_count;
     
     /* ===== 电梯状态 ===== */
-    uint8_t current_floor;       // 当前楼层
-    uint8_t target_floor;        // 目标楼层
-    uint8_t direction;           // 0=停止, 1=上行, 2=下行
-    uint8_t expected_next_floor; // 预期下一个触发楼层
+    volatile uint8_t current_floor;       // 当前楼层
+    volatile uint8_t target_floor;        // 目标楼层
+    volatile uint8_t direction;           // 0=停止, 1=上行, 2=下行
+    volatile uint8_t expected_next_floor; // 预期下一个触发楼层
     
     /* ===== 门状态 ===== */
-    LocalDoorState_t door_state;
-    uint32_t door_cmd_time;
+    volatile LocalDoorState_t door_state;
+    volatile uint32_t door_cmd_time;
     
     /* ===== 防重复发送 ===== */
     uint8_t last_sent_cabin_call;    // 最后发送的内呼楼层

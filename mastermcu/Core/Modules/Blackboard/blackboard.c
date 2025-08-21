@@ -46,14 +46,22 @@ void Blackboard_Reset(void) {
 /* ==================== 状态管理 ==================== */
 
 void Blackboard_SetState(ElevatorState_t new_state) {
+    /* 临界区保护状态切换 */
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
     if (g_blackboard.state != new_state) {
         g_blackboard.prev_state = g_blackboard.state;
         g_blackboard.state = new_state;
         g_blackboard.state_enter_time = HAL_GetTick();
         
+        __set_PRIMASK(primask);  // 恢复中断后再打印
+        
         printf("[Blackboard] State: %s -> %s\r\n", 
                Blackboard_GetStateName(g_blackboard.prev_state),
                Blackboard_GetStateName(new_state));
+    } else {
+        __set_PRIMASK(primask);
     }
 }
 
@@ -70,9 +78,15 @@ const char* Blackboard_GetStateName(ElevatorState_t state) {
 /* ==================== 事件管理 ==================== */
 
 bool Blackboard_PushEvent(EventType_t type, uint8_t floor) {
+    /* 临界区保护 - 禁用中断 */
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
     if (g_blackboard.event_count >= 16) {
-        printf("[Blackboard] Event queue full!\r\n");
-        return false;
+        /* 队列满时，丢弃最旧的事件 */
+        printf("[Blackboard] Event queue full! Dropping oldest event\r\n");
+        g_blackboard.event_head = (g_blackboard.event_head + 1) % 16;
+        g_blackboard.event_count--;
     }
     
     Event_t* event = &g_blackboard.events[g_blackboard.event_tail];
@@ -83,18 +97,29 @@ bool Blackboard_PushEvent(EventType_t type, uint8_t floor) {
     g_blackboard.event_tail = (g_blackboard.event_tail + 1) % 16;
     g_blackboard.event_count++;
     
+    /* 恢复中断 */
+    __set_PRIMASK(primask);
+    
     printf("[Blackboard] Event pushed: type=%d, floor=%d\r\n", type, floor);
     return true;
 }
 
 bool Blackboard_PopEvent(Event_t* event) {
+    /* 临界区保护 */
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
     if (g_blackboard.event_count == 0) {
+        __set_PRIMASK(primask);
         return false;
     }
     
     *event = g_blackboard.events[g_blackboard.event_head];
     g_blackboard.event_head = (g_blackboard.event_head + 1) % 16;
     g_blackboard.event_count--;
+    
+    /* 恢复中断 */
+    __set_PRIMASK(primask);
     
     return true;
 }
@@ -114,44 +139,60 @@ void Blackboard_ClearEvents(void) {
 void Blackboard_AddUpCall(uint8_t floor) {
     /* 1楼上行按钮已启用 */
     if (floor >= 1 && floor <= MAX_FLOORS - 1) {  // 3楼没有上行
+        /* 临界区保护 */
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
         g_blackboard.up_calls[floor] = true;
+        __set_PRIMASK(primask);
+        
         printf("[Blackboard] Up call added at floor %d\r\n", floor);
     }
 }
 
 void Blackboard_AddDownCall(uint8_t floor) {
     if (floor >= 2 && floor <= MAX_FLOORS) {  // 1楼没有下行
+        /* 临界区保护 */
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
         g_blackboard.down_calls[floor] = true;
+        __set_PRIMASK(primask);
+        
         printf("[Blackboard] Down call added at floor %d\r\n", floor);
     }
 }
 
 void Blackboard_AddCabinCall(uint8_t floor) {
     if (floor >= 1 && floor <= MAX_FLOORS) {
+        /* 临界区保护 */
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
         g_blackboard.cabin_calls[floor] = true;
+        __set_PRIMASK(primask);
+        
         printf("[Blackboard] Cabin call added for floor %d\r\n", floor);
     }
 }
 
 void Blackboard_ClearCall(uint8_t floor) {
     if (floor >= 1 && floor <= MAX_FLOORS) {
-        /* 打印清除前的状态 */
-        printf("[Blackboard] Clearing calls at floor %d (before: UP=%d, DOWN=%d, CABIN=%d)\r\n", 
-               floor,
-               g_blackboard.up_calls[floor],
-               g_blackboard.down_calls[floor],
-               g_blackboard.cabin_calls[floor]);
+        /* 临界区保护 */
+        uint32_t primask = __get_PRIMASK();
+        __disable_irq();
+        
+        /* 保存旧值用于打印 */
+        bool old_up = g_blackboard.up_calls[floor];
+        bool old_down = g_blackboard.down_calls[floor];
+        bool old_cabin = g_blackboard.cabin_calls[floor];
         
         g_blackboard.up_calls[floor] = false;
         g_blackboard.down_calls[floor] = false;
         g_blackboard.cabin_calls[floor] = false;
         
-        /* 打印清除后的状态 */
-        printf("[Blackboard] Calls cleared at floor %d (after: UP=%d, DOWN=%d, CABIN=%d)\r\n", 
-               floor,
-               g_blackboard.up_calls[floor],
-               g_blackboard.down_calls[floor],
-               g_blackboard.cabin_calls[floor]);
+        __set_PRIMASK(primask);
+        
+        /* 打印状态 */
+        printf("[Blackboard] Cleared calls at floor %d (was: UP=%d, DOWN=%d, CABIN=%d)\r\n", 
+               floor, old_up, old_down, old_cabin);
     } else {
         printf("[Blackboard] WARNING: Invalid floor %d for ClearCall\r\n", floor);
     }

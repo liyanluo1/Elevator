@@ -37,16 +37,20 @@ void Keyboard_Handler(void) {
         if (current_time - g_keyboard.last_scan_time >= KEYBOARD_DEBOUNCE_TIME) {
             g_keyboard.last_scan_time = current_time;
             
-            // 延时5ms后再扫描，等待信号稳定
-            HAL_Delay(5);
+            // 不使用HAL_Delay，用极短的延时
+            for(volatile int d = 0; d < 500; d++);
             
             // 扫描键盘确定哪个按键被按下
             uint8_t key = Keyboard_ScanInterrupt();
             
-            // 处理按键 - 只处理不同于上次的按键
-            if (key != KEY_NONE && key != g_keyboard.last_key) {
-                Keyboard_ProcessKey(key);
-                g_keyboard.last_key = key;
+            // 处理按键 - 允许重复按键
+            if (key != KEY_NONE) {
+                // 只在按键不同或超过释放时间后才处理
+                if (key != g_keyboard.last_key || 
+                    (current_time - g_keyboard.key_press_time) > KEYBOARD_RELEASE_TIME) {
+                    Keyboard_ProcessKey(key);
+                    g_keyboard.last_key = key;
+                }
             }
             
             // 设置按键释放超时
@@ -100,8 +104,8 @@ uint8_t Keyboard_ScanInterrupt(void) {
                       KEYBOARD_COL3_PIN | KEYBOARD_COL4_PIN, 
                       GPIO_PIN_SET);
     
-    // 等待电平稳定
-    HAL_Delay(1);
+    // 等待电平稳定 - 使用循环代替HAL_Delay（中断中不能用HAL_Delay）
+    for(volatile int delay = 0; delay < 1000; delay++);
     
     // Physical wiring mapping:
     // S16 -> PA4 -> Floor 1
@@ -113,7 +117,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
     
     // Test PA4 (COL4_PIN) for S16 -> Floor 1
     HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL4_PIN, GPIO_PIN_RESET);  // PA4
-    HAL_Delay(1);  // 等待电平稳定
+    for(volatile int delay = 0; delay < 1000; delay++);  // 等待电平稳定
     // 连续读取3次确认
     confirm_count = 0;
     for (int i = 0; i < 3; i++) {
@@ -122,7 +126,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
         }
         for(volatile int j = 0; j < 100; j++);
     }
-    if (confirm_count >= 2) {  // 至少3次中有2次读到低电平
+    if (confirm_count >= 1) {  // 放宽条件：1次即可触发
         key = KEY_S16;  // Floor 1
     }
     HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL4_PIN, GPIO_PIN_SET);
@@ -130,7 +134,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
     if (key == KEY_NONE) {
         // Test PA8 (COL1_PIN) for S15 -> Floor 2
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL1_PIN, GPIO_PIN_RESET);  // PA8
-        HAL_Delay(1);
+        for(volatile int delay = 0; delay < 1000; delay++);
         confirm_count = 0;
         for (int i = 0; i < 3; i++) {
             if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
@@ -138,7 +142,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
             }
             for(volatile int j = 0; j < 100; j++);
         }
-        if (confirm_count >= 2) {
+        if (confirm_count >= 1) {  // 放宽条件：1次即可触发
             key = KEY_S15;  // Floor 2
         }
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL1_PIN, GPIO_PIN_SET);
@@ -147,7 +151,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
     if (key == KEY_NONE) {
         // Test PA5 (COL3_PIN) for S14 -> Floor 3
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL3_PIN, GPIO_PIN_RESET);  // PA5
-        HAL_Delay(1);
+        for(volatile int delay = 0; delay < 1000; delay++);
         confirm_count = 0;
         for (int i = 0; i < 3; i++) {
             if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
@@ -155,7 +159,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
             }
             for(volatile int j = 0; j < 100; j++);
         }
-        if (confirm_count >= 2) {
+        if (confirm_count >= 1) {  // 放宽条件：1次即可触发
             key = KEY_S14;  // Floor 3
         }
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL3_PIN, GPIO_PIN_SET);
@@ -164,7 +168,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
     if (key == KEY_NONE) {
         // Test PA12 (COL2_PIN) for S13 -> Not used
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL2_PIN, GPIO_PIN_RESET);  // PA12
-        HAL_Delay(1);
+        for(volatile int delay = 0; delay < 1000; delay++);
         confirm_count = 0;
         for (int i = 0; i < 3; i++) {
             if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_RESET) {
@@ -172,7 +176,7 @@ uint8_t Keyboard_ScanInterrupt(void) {
             }
             for(volatile int j = 0; j < 100; j++);
         }
-        if (confirm_count >= 2) {
+        if (confirm_count >= 1) {  // 放宽条件：1次即可触发
             key = KEY_S13;  // S13 detected but not used in elevator logic
         }
         HAL_GPIO_WritePin(KEYBOARD_COL_PORT, KEYBOARD_COL2_PIN, GPIO_PIN_SET);
@@ -180,20 +184,21 @@ uint8_t Keyboard_ScanInterrupt(void) {
     
     // 等待按键释放
     if (key != KEY_NONE) {
-        // 等待按键释放（最多等500ms）
+        // 等待按键释放（最多等20ms）- 大幅缩短
         uint32_t wait_start = HAL_GetTick();
-        while ((HAL_GetTick() - wait_start) < 500) {
+        while ((HAL_GetTick() - wait_start) < 20) {
             // 设置所有列为HIGH
             HAL_GPIO_WritePin(KEYBOARD_COL_PORT, 
                               KEYBOARD_COL1_PIN | KEYBOARD_COL2_PIN | 
                               KEYBOARD_COL3_PIN | KEYBOARD_COL4_PIN, 
                               GPIO_PIN_SET);
-            HAL_Delay(5);
+            // 不延时或使用极小延时
+            for(volatile int d = 0; d < 100; d++);
             
             // 检查是否释放
             if (HAL_GPIO_ReadPin(KEYBOARD_ROW_PORT, KEYBOARD_ROW_PIN) == GPIO_PIN_SET) {
                 // 按键已释放
-                HAL_Delay(10);  // 额外延时确保完全释放
+                HAL_Delay(1);  // 极小额外延时
                 break;
             }
         }

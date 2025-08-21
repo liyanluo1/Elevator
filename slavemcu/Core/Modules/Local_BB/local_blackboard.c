@@ -39,9 +39,15 @@ void LocalBB_Reset(void) {
 /* ==================== 事件队列管理 ==================== */
 
 static bool PushEvent(LocalEventType_t type, uint8_t data1, uint8_t data2, uint8_t data3) {
+    /* 临界区保护 */
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
     if (g_local_bb.event_count >= MAX_EVENT_QUEUE) {
-        printf("[LocalBB] Event queue full!\r\n");
-        return false;
+        /* 队列满时丢弃最旧事件 */
+        printf("[LocalBB] Event queue full! Dropping oldest\r\n");
+        g_local_bb.event_head = (g_local_bb.event_head + 1) % MAX_EVENT_QUEUE;
+        g_local_bb.event_count--;
     }
     
     LocalEvent_t* event = &g_local_bb.event_queue[g_local_bb.event_tail];
@@ -54,11 +60,17 @@ static bool PushEvent(LocalEventType_t type, uint8_t data1, uint8_t data2, uint8
     g_local_bb.event_tail = (g_local_bb.event_tail + 1) % MAX_EVENT_QUEUE;
     g_local_bb.event_count++;
     
+    __set_PRIMASK(primask);
     return true;
 }
 
 static bool PopEvent(LocalEvent_t* event) {
+    /* 临界区保护 */
+    uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
     if (g_local_bb.event_count == 0) {
+        __set_PRIMASK(primask);
         return false;
     }
     
@@ -66,6 +78,7 @@ static bool PopEvent(LocalEvent_t* event) {
     g_local_bb.event_head = (g_local_bb.event_head + 1) % MAX_EVENT_QUEUE;
     g_local_bb.event_count--;
     
+    __set_PRIMASK(primask);
     return true;
 }
 
@@ -82,9 +95,13 @@ void LocalBB_AddCabinCall(uint8_t floor) {
         return;
     }
     
+    /* 关键修复：同层按钮特殊处理 */
+    /* 每次都发送给Master，让Master决定是否开门 */
+    /* 但要确保不会重复发送同一个呼叫 */
+    
     PushEvent(LOCAL_EVENT_CABIN_CALL, floor, 0, 0);
     g_local_bb.cabin_call_count++;
-    printf("[LocalBB] Cabin call queued: floor %d\r\n", floor);
+    printf("[LocalBB] Cabin call queued: floor %d (current: %d)\r\n", floor, g_local_bb.current_floor);
 }
 
 void LocalBB_AddPhotoSensor(void) {
@@ -149,10 +166,9 @@ void LocalBB_Process(void) {
     while (PopEvent(&event)) {
         switch (event.type) {
             case LOCAL_EVENT_CABIN_CALL:
-                /* 防重复发送 */
-                if (event.data1 != g_local_bb.last_sent_cabin_call ||
-                    (current_time - g_local_bb.last_cabin_call_time) > MIN_RESEND_TIME_MS) {
-                    
+                /* 内呼总是发送，让Master决定如何处理 */
+                /* 同层按钮需要立即响应，不能被防重复机制阻止 */
+                {
                     /* 发送内呼命令 */
                     uint8_t tx_buffer[4];
                     tx_buffer[0] = CMD_CABIN_CALL;

@@ -15,7 +15,7 @@ static uint8_t calculate_checksum(uint8_t *packet, uint8_t len) {
 
 // 函数：发送包
 static void send_packet(uint8_t *packet, uint8_t len) {
-    HAL_UART_Transmit(servo_uart, packet, len, HAL_MAX_DELAY);
+    HAL_UART_Transmit(servo_uart, packet, len, 50);  // 50ms超时，避免永久阻塞
 }
 
 // 函数：接收包（简单阻塞式，假设响应快速；实际可加超时/DMA）
