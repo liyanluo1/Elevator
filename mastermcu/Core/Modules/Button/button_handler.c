@@ -99,14 +99,8 @@ void Button_Process(void) {
         }
     }
     
-    // 自动复位超时的按钮
-    for (int i = 0; i < NUM_BUTTONS; i++) {
-        if (buttons[i].pressed) {
-            if (current_time - buttons[i].last_press_time > BUTTON_HOLD_TIME) {
-                buttons[i].pressed = false;
-            }
-        }
-    }
+    // 注意：按钮状态的清除由main.c的ProcessButtons处理
+    // 这里不自动复位，避免与main.c冲突
 }
 
 // 检查按钮是否被按下
@@ -169,18 +163,8 @@ void Button_GetAllStates(bool* up_states, bool* down_states) {
 
 
 
-// 外部中断回调（优化版本 - 极简快速）
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-    // 快速标记哪个引脚触发了中断（<1us）
-    switch(GPIO_Pin) {
-        case GPIO_PIN_0:  Button_IRQHandler(2); break;  // PC0 - Floor 2 Down
-        case GPIO_PIN_1:  Button_IRQHandler(1); break;  // PC1 - Floor 2 Up  
-        case GPIO_PIN_2:  Button_IRQHandler(4); break;  // PC2 - Floor 3 Down
-        case GPIO_PIN_3:  Button_IRQHandler(3); break;  // PC3 - Floor 3 Up
-        case GPIO_PIN_6:  Button_IRQHandler(0); break;  // PA6 - Floor 1 Up (替代PC5)
-    }
-    // 中断结束 - 总时间 < 1us
-}
+// 注意：HAL_GPIO_EXTI_Callback已移至stm32f4xx_it.c中实现
+// 这里不再定义，避免重复定义错误
 
 // 获取中断计数（调试用）
 uint32_t Button_GetInterruptCount(void) {

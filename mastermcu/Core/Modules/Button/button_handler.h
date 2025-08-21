@@ -59,8 +59,7 @@ bool Button_GetDownState(uint8_t floor);
 uint8_t Button_GetPressedCount(void);
 void Button_GetAllStates(bool* up_states, bool* down_states);
 
-// 外部中断回调
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
+// 外部中断回调 - 在stm32f4xx_it.c中实现
 
 // 调试函数
 uint32_t Button_GetInterruptCount(void);

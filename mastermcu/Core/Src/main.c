@@ -289,33 +289,17 @@ int main(void)
 /* USER CODE BEGIN 4 */
 
 /**
-  * @brief  处理按钮输入（楼层外呼）
+  * @brief  处理按钮输入（楼层外呼） - 中断模式
+  * @note   现在使用中断模式，此函数处理中断产生的按键事件
   */
 void ProcessButtons(void) {
-    static bool button_pressed[NUM_BUTTONS] = {false};
-    static bool first_scan = true;
+    /* 调用Button模块的处理函数，处理中断标志 */
+    Button_Process();
     
-    /* 第一次扫描时，记录初始状态，避免误触发 */
-    if (first_scan) {
-        first_scan = false;
-        for (int i = 0; i < NUM_BUTTONS; i++) {
-            Button_t* btn = &buttons[i];
-            GPIO_PinState state = HAL_GPIO_ReadPin(btn->port, btn->pin);
-            button_pressed[i] = (state == GPIO_PIN_RESET);  // 记录初始状态
-        }
-        return;  // 第一次只记录，不处理
-    }
-    
+    /* 检查每个按钮是否被按下 */
     for (int i = 0; i < NUM_BUTTONS; i++) {
-        Button_t* btn = &buttons[i];
-        
-        /* 1楼上行按钮已启用 - 移除禁用代码 */
-        // 正常处理所有按钮
-        
-        GPIO_PinState state = HAL_GPIO_ReadPin(btn->port, btn->pin);
-        
-        if (state == GPIO_PIN_RESET && !button_pressed[i]) {
-            button_pressed[i] = true;
+        if (Button_IsPressed(i)) {
+            Button_t* btn = &buttons[i];
             
             /* 处理楼层外呼 - 推送事件到队列 */
             if (btn->type == BUTTON_TYPE_UP) {
@@ -328,6 +312,9 @@ void ProcessButtons(void) {
                 
                 /* 事件驱动：推送事件，由FSM处理 */
                 Blackboard_PushEvent(EVENT_BUTTON_UP, btn->floor);
+                
+                /* 清除按钮状态，避免重复触发 */
+                buttons[i].pressed = false;
             }
             else if (btn->type == BUTTON_TYPE_DOWN) {
                 printf("\r\n[BUTTON] Floor %d DOWN call\r\n", btn->floor);
@@ -339,10 +326,10 @@ void ProcessButtons(void) {
                 
                 /* 事件驱动：推送事件，由FSM处理 */
                 Blackboard_PushEvent(EVENT_BUTTON_DOWN, btn->floor);
+                
+                /* 清除按钮状态，避免重复触发 */
+                buttons[i].pressed = false;
             }
-        }
-        else if (state == GPIO_PIN_SET) {
-            button_pressed[i] = false;
         }
     }
 }
@@ -365,31 +352,46 @@ void ProcessRS485(void) {
         /* 光电传感器触发命令 */
         if (rx_buffer[0] == CMD_PHOTO_SENSOR && rx_len >= 2) {
             uint8_t floor = rx_buffer[1];
-            printf("\r\n[RS485 RX] Photo sensor floor %d\r\n", floor);
+            
+            printf("\r\n========== PHOTO SENSOR TRIGGERED ==========\r\n");
+            printf("[RS485 RX] Photo sensor floor %d\r\n", floor);
+            printf("[DEBUG] Current state: %s, Target floor: %d\r\n", 
+                   Blackboard_GetStateName(g_blackboard.state), g_blackboard.target_floor);
             
             /* 事件驱动：推送光电传感器事件 */
             Blackboard_PushEvent(EVENT_PHOTO_SENSOR, floor);
+            printf("[DEBUG] Photo event pushed, will be processed by FSM\r\n");
+            printf("=============================================\r\n");
         }
         /* 轿厢内呼命令 */
         else if (rx_buffer[0] == CMD_CABIN_CALL && rx_len >= 2) {
             uint8_t floor = rx_buffer[1];
             cabin_rx_count++;
             
-            printf("\r\n[RS485 RX] Cabin call floor %d (total cabin calls: %lu)\r\n", floor, cabin_rx_count);
+            printf("\r\n========== CABIN CALL RECEIVED ==========\r\n");
+            printf("[RS485 RX] Cabin call floor %d (total cabin calls: %lu)\r\n", floor, cabin_rx_count);
+            printf("[DEBUG] Current state: %s, Current floor: %d\r\n", 
+                   Blackboard_GetStateName(g_blackboard.state), g_blackboard.current_floor);
             
             /* 事件驱动：推送内呼事件 */
             Blackboard_PushEvent(EVENT_CABIN_CALL, floor);
+            printf("[DEBUG] Event pushed to queue\r\n");
+            printf("==========================================\r\n");
             
             /* 更新计数并立即显示 */
             UpdateOLEDRxCount(total_rx_count, cabin_rx_count);
             UpdateOLEDDisplay();
         }
-        /* 门状态反馈 */
-        else if (rx_buffer[0] == CMD_DOOR_STATUS && rx_len >= 2) {
-            uint8_t status = rx_buffer[1];
-            g_blackboard.door_state = status ? DOOR_OPEN : DOOR_CLOSED;
-            printf("[RS485 RX] Door %s\r\n", status ? "OPEN" : "CLOSED");
-        }
+        /* 门状态反馈 - TIME BASED模式下不使用 */
+        // else if (rx_buffer[0] == CMD_DOOR_STATUS && rx_len >= 2) {
+        //     uint8_t status = rx_buffer[1];
+        //     /* Slave发送: 0=CLOSED, 1=OPENING, 2=OPEN, 3=CLOSING */
+        //     const char* door_state_str[] = {"CLOSED", "OPENING", "OPEN", "CLOSING"};
+        //     if (status <= 3) {
+        //         g_blackboard.door_state = (DoorState_t)status;
+        //         printf("[RS485 RX] Door state: %s\r\n", door_state_str[status]);
+        //     }
+        // }
     }
 }
 
@@ -720,17 +722,29 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
   
-  /* Configure button pins: PC0, PC1, PC2, PC3 (PC5已弃用) */
+  /* Configure button pins: PC0, PC1, PC2, PC3 as interrupt mode (PC5已弃用) */
   GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2 | GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;  // 下降沿触发中断（按下时）
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
   
-  /* Configure PA6 for Floor 1 UP button (替代原PC5) */
+  /* Configure PA6 for Floor 1 UP button as interrupt mode (替代原PC5) */
   GPIO_InitStruct.Pin = GPIO_PIN_6;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;  // 下降沿触发中断（按下时）
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  
+  /* Enable and set EXTI line Interrupt to the lowest priority */
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 2, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 }
 
 void Error_Handler(void)

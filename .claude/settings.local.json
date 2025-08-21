@@ -33,6 +33,9 @@
       "Bash(grep:*)"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "C:\\c\\Users\\yogo\\STM32CubeIDE\\workspace_1.18.1"
+    ]
   }
 }

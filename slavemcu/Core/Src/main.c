@@ -32,12 +32,14 @@
 /* UART句柄声明 */
 extern UART_HandleTypeDef huart1;
 extern UART_HandleTypeDef huart2;
+extern UART_HandleTypeDef huart3;
 #include "../Modules/Local_BB/local_blackboard.h"
 #include "../Modules/RS485/rs485.h"
 #include "../Modules/RS485/rs485_protocol.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -98,7 +100,7 @@ void ProcessRS485(void);
 void ProcessDoorControl(void);
 void SendPhotoSensorEvent(uint8_t floor);
 void SendCabinCall(uint8_t floor);
-void SendDoorStatus(bool is_open);
+void SendDoorStatus(DoorState_t state);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -171,7 +173,68 @@ int main(void)
   }
   
   /* 初始化舵机门控系统 */
-  DoorControl_Init(&door_controller);
+  printf("[SERVO] Initializing servo communication...\r\n");
+  servo_init(&huart3);
+  HAL_Delay(100);
+  
+  /* 舵机通信测试 */
+  printf("\r\n=== SERVO COMMUNICATION TEST ===\r\n");
+  
+  /* 测试1: PING */
+  printf("1. Testing PING...\r\n");
+  if (servo_ping(1)) {
+      printf("   SUCCESS: Servo responded to PING\r\n");
+  } else {
+      printf("   FAILED: No response to PING\r\n");
+  }
+  
+  /* 测试2: 读取位置 */
+  printf("2. Reading position (0x38)...\r\n");
+  uint8_t pos_data[2];
+  for(int i = 0; i < 3; i++) {
+      if (servo_read_reg(1, 0x38, 2, pos_data) == 1) {
+          uint16_t pos = pos_data[0] | (pos_data[1] << 8);
+          printf("   Try %d: SUCCESS, Position = %u\r\n", i+1, pos);
+      } else {
+          printf("   Try %d: FAILED\r\n", i+1);
+      }
+      HAL_Delay(50);
+  }
+  
+  /* 测试3: 读取移动标志 */
+  printf("3. Reading moving flag (0x42)...\r\n");
+  uint8_t moving_flag;
+  for(int i = 0; i < 3; i++) {
+      if (servo_read_reg(1, 0x42, 1, &moving_flag) == 1) {
+          printf("   Try %d: SUCCESS, Moving = %d\r\n", i+1, moving_flag);
+      } else {
+          printf("   Try %d: FAILED\r\n", i+1);
+      }
+      HAL_Delay(50);
+  }
+  
+  /* 测试4: 读取电压 */
+  printf("4. Reading voltage (0x3E)...\r\n");
+  uint8_t voltage;
+  if (servo_read_reg(1, 0x3E, 1, &voltage) == 1) {
+      printf("   SUCCESS: Voltage = %.1fV\r\n", voltage * 0.1f);
+  } else {
+      printf("   FAILED\r\n");
+  }
+  
+  /* 测试5: 读取温度 */
+  printf("5. Reading temperature (0x3F)...\r\n");
+  uint8_t temp;
+  if (servo_read_reg(1, 0x3F, 1, &temp) == 1) {
+      printf("   SUCCESS: Temperature = %d°C\r\n", temp);
+  } else {
+      printf("   FAILED\r\n");
+  }
+  
+  printf("=== TEST COMPLETE ===\r\n\r\n");
+  
+  /* 继续正常初始化 */
+  DoorControl_Init(&door_controller, 1);  // 使用舵机ID 1
   
   /* 初始化Local Blackboard - 中央事件管理 */
   LocalBB_Init();
@@ -184,7 +247,6 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   uint32_t last_status_time = 0;
-  uint32_t last_photo_time = 0;  // 光电防抖
   
   while (1)
   {
@@ -398,6 +460,11 @@ void ProcessRS485(void) {
     if (rx_len > 0) {
         system_state.rs485_rx_count++;
         
+        /* 调试：打印所有接收到的命令 */
+        printf("[RS485 DEBUG] Received CMD=0x%02X, len=%d, data=[%02X %02X %02X %02X]\r\n", 
+               rx_buffer[0], rx_len, 
+               rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3]);
+        
         /* 方向设置命令 */
         if (rx_buffer[0] == CMD_DIRECTION_SET && rx_len >= 4) {
             uint8_t dir = rx_buffer[1];
@@ -417,14 +484,16 @@ void ProcessRS485(void) {
         }
         /* 门控制命令 */
         else if (rx_buffer[0] == CMD_DOOR_OPEN) {
-            printf("[RS485 RX] Door OPEN command\r\n");
+            printf("\r\n[RS485 RX] Door OPEN command received at tick %lu\r\n", HAL_GetTick());
             LocalBB_AddDoorCommand(true);
             system_state.door_cmd_count++;
+            printf("[RS485 RX] Total door commands: %lu\r\n", system_state.door_cmd_count);
         }
         else if (rx_buffer[0] == CMD_DOOR_CLOSE) {
-            printf("[RS485 RX] Door CLOSE command\r\n");
+            printf("\r\n[RS485 RX] Door CLOSE command received at tick %lu\r\n", HAL_GetTick());
             LocalBB_AddDoorCommand(false);
             system_state.door_cmd_count++;
+            printf("[RS485 RX] Total door commands: %lu\r\n", system_state.door_cmd_count);
         }
         /* 状态请求 */
         else if (rx_buffer[0] == CMD_STATUS_REQUEST) {
@@ -450,21 +519,31 @@ void ProcessDoorControl(void) {
     /* 处理来自LocalBB的门控命令 */
     LocalBB_DoorCommand_t door_cmd = LocalBB_GetDoorCommand();
     if (door_cmd != DOOR_CMD_NONE) {
+        printf("\r\n========== DOOR COMMAND RECEIVED ==========\r\n");
+        printf("[MAIN] Tick=%lu, Command=%s\r\n", 
+               HAL_GetTick(), door_cmd == DOOR_CMD_OPEN ? "OPEN" : "CLOSE");
+        
         if (door_cmd == DOOR_CMD_OPEN) {
             printf("[DOOR] Command: OPEN\r\n");
             DoorControl_Open(&door_controller);
             system_state.door_is_open = true;
-            SendDoorStatus(true);
+            // TIME BASED模式 - 不发送状态反馈
+            // SendDoorStatus(DOOR_STATE_OPENING);
+            // printf("[MAIN] Sent OPENING status to Master\r\n");
         } else if (door_cmd == DOOR_CMD_CLOSE) {
             printf("[DOOR] Command: CLOSE\r\n");
             DoorControl_Close(&door_controller);
             system_state.door_is_open = false;
-            SendDoorStatus(false);
+            // TIME BASED模式 - 不发送状态反馈
+            // SendDoorStatus(DOOR_STATE_CLOSING);
+            // printf("[MAIN] Sent CLOSING status to Master\r\n");
         }
         LocalBB_ClearDoorCommand();
+        printf("============================================\r\n\r\n");
     }
     
-    /* 检查门状态变化 */
+    /* TIME BASED模式 - 不发送门状态反馈 */
+    /* 但仍然更新本地状态用于调试 */
     DoorState_t door_state = DoorControl_GetState(&door_controller);
     static DoorState_t last_door_state = DOOR_STATE_CLOSED;
     
@@ -473,20 +552,24 @@ void ProcessDoorControl(void) {
         
         switch (door_state) {
             case DOOR_STATE_OPEN:
-                printf("[DOOR] Fully opened\r\n");
+                printf("[DOOR] Fully opened (local state)\r\n");
                 system_state.door_is_open = true;
-                SendDoorStatus(true);
+                // SendDoorStatus(DOOR_STATE_OPEN);
                 break;
                 
             case DOOR_STATE_CLOSED:
-                printf("[DOOR] Fully closed\r\n");
+                printf("[DOOR] Fully closed (local state)\r\n");
                 system_state.door_is_open = false;
-                SendDoorStatus(false);
+                // SendDoorStatus(DOOR_STATE_CLOSED);
                 break;
                 
             case DOOR_STATE_OPENING:
+                printf("[DOOR] Opening (local state)\r\n");
+                // SendDoorStatus(DOOR_STATE_OPENING);
+                break;
             case DOOR_STATE_CLOSING:
-                // 过渡状态，不需要特殊处理
+                printf("[DOOR] Closing (local state)\r\n");
+                // SendDoorStatus(DOOR_STATE_CLOSING);
                 break;
         }
     }
@@ -535,16 +618,18 @@ void SendCabinCall(uint8_t floor) {
 /**
   * @brief  发送门状态
   */
-void SendDoorStatus(bool is_open) {
+void SendDoorStatus(DoorState_t state) {
     uint8_t tx_buffer[4];
     tx_buffer[0] = CMD_DOOR_STATUS;
-    tx_buffer[1] = is_open ? 1 : 0;
+    tx_buffer[1] = (uint8_t)state;  // 0=CLOSED, 1=OPENING, 2=OPEN, 3=CLOSING
     tx_buffer[2] = 0;
     tx_buffer[3] = 0;
     
     rs485_send_packet_dma(tx_buffer, 4);
     system_state.rs485_tx_count++;
-    printf("[RS485 TX] Door status %s\r\n", is_open ? "OPEN" : "CLOSED");
+    
+    const char* state_str[] = {"CLOSED", "OPENING", "OPEN", "CLOSING"};
+    printf("[RS485 TX] Door status: %s\r\n", state_str[state]);
 }
 
 /**

@@ -20,6 +20,8 @@ void Blackboard_Init(void) {
     g_blackboard.direction = DIR_IDLE;
     g_blackboard.door_state = DOOR_CLOSED;
     
+    printf("[BB] Blackboard initialized, door_state = DOOR_CLOSED (%d)\r\n", g_blackboard.door_state);
+    
     /* 清空所有呼叫 */
     for (int i = 0; i <= MAX_FLOORS; i++) {
         g_blackboard.up_calls[i] = false;

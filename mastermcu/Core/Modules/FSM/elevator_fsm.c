@@ -129,8 +129,11 @@ void FSM_HandleCabinCall(uint8_t floor) {
 }
 
 void FSM_HandlePhotoSensor(uint8_t floor) {
+    printf("\r\n******** FSM PHOTO SENSOR HANDLER ********\r\n");
     printf("[FSM] Photo sensor triggered at floor %d (state=%s)\r\n", 
            floor, Blackboard_GetStateName(g_blackboard.state));
+    printf("[FSM] Target floor: %d, Current floor: %d -> %d\r\n", 
+           g_blackboard.target_floor, g_blackboard.current_floor, floor);
     g_blackboard.last_photo_floor = floor;
     
     /* 更新当前楼层，不管什么状态 */
@@ -146,7 +149,8 @@ void FSM_HandlePhotoSensor(uint8_t floor) {
     if (g_blackboard.state == STATE_MOVING) {
         /* 情况1：到达目标楼层 */
         if (floor == g_blackboard.target_floor) {
-            printf("[FSM] Target floor reached! Stopping at floor %d\r\n", floor);
+            printf("[FSM] *** TARGET FLOOR REACHED! ***\r\n");
+            printf("[FSM] Stopping at floor %d\r\n", floor);
             
             /* 立即停止电机 */
             Blackboard_SetMotorCommand(MOTOR_CMD_STOP, 0);
@@ -158,14 +162,15 @@ void FSM_HandlePhotoSensor(uint8_t floor) {
             /* 发送停止方向命令 */
             FSM_SendDirectionCommand(DIR_STOP);
             
-            /* 门控禁用 - 改为DOOR_OPERATING状态（非阻塞） */
-            printf("[FSM] Starting door operation\r\n");
-            
             /* 转到门操作状态 */
+            printf("[FSM] >>> TRANSITIONING TO DOOR_OPERATING STATE <<<\r\n");
+            printf("[FSM] door_state initial value: %d\r\n", g_blackboard.door_state);
             Blackboard_SetState(STATE_DOOR_OPERATING);
             door_operation_start = HAL_GetTick();  // 记录开始时间
             door_command_sent = false;
+            g_blackboard.door_state = DOOR_CLOSED;  // 重要：初始化门状态为关闭
             sprintf(g_blackboard.debug_msg, "Door F%d", floor);
+            printf("[FSM] door_state reset to CLOSED, door_operation_start=%lu\r\n", door_operation_start);
         }
         /* 情况2：检查中途停靠 */
         else if (Blackboard_HasCallAt(floor)) {
@@ -219,6 +224,7 @@ void FSM_HandlePhotoSensor(uint8_t floor) {
                 Blackboard_SetState(STATE_DOOR_OPERATING);
                 door_operation_start = HAL_GetTick();
                 door_command_sent = false;
+                g_blackboard.door_state = DOOR_CLOSED;  // 重要：初始化门状态为关闭
                 sprintf(g_blackboard.debug_msg, "Door@F%d", floor);
             }
             else {
@@ -249,6 +255,8 @@ void FSM_HandlePhotoSensor(uint8_t floor) {
             Blackboard_ClearCall(floor);
         }
     }
+    
+    printf("*******************************************\r\n\r\n");
 }
 
 /* ==================== 状态处理函数 ==================== */
@@ -301,10 +309,20 @@ void FSM_CheckAndStartMovement(void) {
                     g_blackboard.direction == DIR_UP ? "UP" : "DOWN");
                     
         } else if (next_floor == g_blackboard.current_floor) {
-            /* 就在当前楼层，清除呼叫即可 */
+            /* 就在当前楼层，需要进行门操作 */
+            printf("[FSM] Already at floor %d, starting door operation\r\n", g_blackboard.current_floor);
+            sprintf(check_msg, "[U2-CHECK] Already at F%d, door op\r\n", g_blackboard.current_floor);
+            HAL_UART_Transmit(&huart2, (uint8_t*)check_msg, strlen(check_msg), 100);
+            
+            /* 清除呼叫 */
             Blackboard_ClearCall(g_blackboard.current_floor);
-            printf("[FSM] Already at floor %d, call cleared\r\n", g_blackboard.current_floor);
-            sprintf(g_blackboard.debug_msg, "Already at F%d", g_blackboard.current_floor);
+            
+            /* 直接进入门操作状态 */
+            Blackboard_SetState(STATE_DOOR_OPERATING);
+            door_operation_start = HAL_GetTick();
+            door_command_sent = false;
+            g_blackboard.door_state = DOOR_CLOSED;  // 重要：初始化门状态为关闭
+            sprintf(g_blackboard.debug_msg, "Door@F%d", g_blackboard.current_floor);
         }
     }
 }
@@ -339,6 +357,23 @@ void FSM_StateMoving(void) {
 
 void FSM_StateDoorOperating(void) {
     uint32_t elapsed = HAL_GetTick() - door_operation_start;
+    static uint32_t last_state_enter_time = 0;
+    static uint32_t door_open_time = 0;  // 门完全打开的时间
+    static bool close_command_sent = false;
+    
+    /* 检测状态变化，重置静态变量 */
+    if (g_blackboard.state_enter_time != last_state_enter_time) {
+        last_state_enter_time = g_blackboard.state_enter_time;
+        
+        /* 重置所有函数内静态变量 */
+        door_open_time = 0;
+        close_command_sent = false;
+        
+        printf("\r\n[FSM] === ENTERED STATE_DOOR_OPERATING ===\r\n");
+        printf("[FSM] Entry tick: %lu, door_state: %d\r\n", last_state_enter_time, g_blackboard.door_state);
+        printf("[FSM] door_command_sent: %d\r\n", door_command_sent);
+        printf("[FSM] Static vars reset: door_open_time=0, close_command_sent=false\r\n");
+    }
     
     /* USART2调试 - 每500ms输出一次 */
     static uint32_t last_door_debug = 0;
@@ -346,43 +381,64 @@ void FSM_StateDoorOperating(void) {
         last_door_debug = HAL_GetTick();
         extern UART_HandleTypeDef huart2;
         char door_msg[80];
-        sprintf(door_msg, "[U2-DOOR] Elapsed:%lu ms, State:%d\r\n", 
-                elapsed, g_blackboard.door_state);
+        const char* state_str[] = {"CLOSED", "OPENING", "OPEN", "CLOSING"};
+        sprintf(door_msg, "[U2-DOOR] Elapsed:%lu ms, State:%s\r\n", 
+                elapsed, state_str[g_blackboard.door_state]);
         HAL_UART_Transmit(&huart2, (uint8_t*)door_msg, strlen(door_msg), 100);
+        
+        /* 同时打印到USART1 */
+        printf("[DOOR_OP] Elapsed: %lu ms, door_state: %s, cmd_sent: %d\r\n",
+               elapsed, state_str[g_blackboard.door_state], door_command_sent);
     }
     
-    /* 真实门控版本 */
+    /* TIME BASED控制：纯时间控制，不依赖反馈 */
     if (!door_command_sent) {
         /* 发送开门命令 */
+        printf("[FSM] >>> SENDING DOOR OPEN COMMAND <<<\r\n");
         FSM_SendDoorCommand(true);
         door_command_sent = true;
+        close_command_sent = false;
+        sprintf(g_blackboard.debug_msg, "Sent open cmd");
+        printf("[FSM] Door open command sent at tick %lu\r\n", HAL_GetTick());
+        
+        /* 假设门正在开启 */
         g_blackboard.door_state = DOOR_OPENING;
+    }
+    else if (elapsed < 2000) {
+        /* 等待2秒让门打开 */
         sprintf(g_blackboard.debug_msg, "Door opening");
+        // TIME BASED模式 - 不检查反馈
     }
-    else if (elapsed < 1500) {
-        /* 等待开门（1.5秒） */
-        g_blackboard.door_state = DOOR_OPENING;
-    }
-    else if (elapsed < 3500) {
-        /* 保持开门（2秒） */
-        g_blackboard.door_state = DOOR_OPEN;
+    else if (elapsed >= 2000 && elapsed < 5000) {
+        /* 门已完全打开 - 保持开门3秒 */
+        if (door_open_time == 0) {
+            door_open_time = HAL_GetTick();
+            printf("[FSM] Door fully opened (time-based)\r\n");
+            g_blackboard.door_state = DOOR_OPEN;  // 假设门已打开
+        }
+        
         sprintf(g_blackboard.debug_msg, "Door open");
     }
-    else if (elapsed < 3600) {
+    else if (elapsed >= 5000 && !close_command_sent) {
         /* 发送关门命令 */
-        if (g_blackboard.door_state != DOOR_CLOSING) {
-            FSM_SendDoorCommand(false);
-            g_blackboard.door_state = DOOR_CLOSING;
-            sprintf(g_blackboard.debug_msg, "Door closing");
-        }
+        printf("[FSM] >>> SENDING DOOR CLOSE COMMAND <<<\r\n");
+        FSM_SendDoorCommand(false);
+        close_command_sent = true;
+        g_blackboard.door_state = DOOR_CLOSING;  // 假设门正在关闭
+        sprintf(g_blackboard.debug_msg, "Sent close cmd");
     }
-    else if (elapsed < 5000) {
-        /* 等待关门（1.5秒） */
-        g_blackboard.door_state = DOOR_CLOSING;
+    else if (elapsed >= 5000 && close_command_sent && elapsed < 8000) {
+        /* 等待门关闭（3秒时间） */
+        sprintf(g_blackboard.debug_msg, "Door closing");
+        // TIME BASED模式 - 不检查反馈
     }
-    else {
-        /* 门操作完成 */
-        printf("[FSM] Door operation completed\r\n");
+    else if (elapsed >= 8000) {
+        /* 门已完全关闭，操作完成 */
+        printf("[FSM] Door operation completed (time-based, elapsed=%lu ms)\r\n", elapsed);
+        g_blackboard.door_state = DOOR_CLOSED;  // 确保状态为关闭
+        
+        /* 重置门控制命令标志 */
+        door_command_sent = false;
         
         /* USART2调试 */
         extern UART_HandleTypeDef huart2;

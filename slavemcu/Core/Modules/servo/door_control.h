@@ -12,10 +12,10 @@ typedef enum {
     DOOR_STATE_CLOSING      // 正在关门
 } DoorState_t;
 
-// 门控位置定义（反转映射）
+// 门控位置定义（交换映射）
 #define DOOR_POS_CLOSED    2526   // 关门位置：222度 (222*4096/360)
 #define DOOR_POS_OPEN      0      // 开门位置：0度
-#define DOOR_POS_TOLERANCE 20     // 位置容差（步数）
+#define DOOR_POS_TOLERANCE 50     // 位置容差（步数）
 
 // 门控结构体
 typedef struct {
