@@ -50,10 +50,7 @@ void Keyboard_Handler(void) {
                     (current_time - g_keyboard.key_press_time) > KEYBOARD_RELEASE_TIME) {
                     Keyboard_ProcessKey(key);
                     g_keyboard.last_key = key;
-                    g_keyboard.key_press_time = current_time;
-                }
-                // 如果是相同按键但时间不够，也要更新时间以便后续释放检测
-                else {
+                    // 只在按键被处理时更新时间
                     g_keyboard.key_press_time = current_time;
                 }
             }

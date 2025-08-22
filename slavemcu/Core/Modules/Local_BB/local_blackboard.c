@@ -87,18 +87,39 @@ static bool PopEvent(LocalEvent_t* event) {
 void LocalBB_AddCabinCall(uint8_t floor) {
     if (floor < 1 || floor > MAX_FLOORS) return;
     
-    /* 防抖：如果短时间内重复按同一楼层，忽略 */
     uint32_t current_time = HAL_GetTick();
-    if (floor == g_local_bb.last_sent_cabin_call && 
-        (current_time - g_local_bb.last_cabin_call_time) < DEBOUNCE_TIME_MS) {
-        printf("[LocalBB] Cabin call %d debounced\r\n", floor);
-        return;
+    
+    /* 智能防抖策略：
+     * 1. 同层呼叫：使用较长的防抖时间（100ms），防止门操作期间重复发送
+     * 2. 不同层呼叫：使用极短的防抖时间（3ms），确保快速响应
+     * 3. 超过1秒后：认为是新的操作周期，重置防抖
+     */
+    
+    /* 如果距离上次发送超过1秒，重置记录（新的操作周期） */
+    if ((current_time - g_local_bb.last_cabin_call_time) > 1000) {
+        g_local_bb.last_sent_cabin_call = 0;  /* 重置记录 */
     }
     
-    /* 关键修复：同层按钮特殊处理 */
-    /* 每次都发送给Master，让Master决定是否开门 */
-    /* 但要确保不会重复发送同一个呼叫 */
+    /* 防抖检查 */
+    if (floor == g_local_bb.last_sent_cabin_call) {
+        /* 同楼层呼叫 */
+        if (floor == g_local_bb.current_floor) {
+            /* 同层呼叫：使用100ms防抖，避免门操作期间重复触发 */
+            if ((current_time - g_local_bb.last_cabin_call_time) < 100) {
+                printf("[LocalBB] Same floor cabin call %d debounced (wait %lums)\r\n", 
+                       floor, 100 - (current_time - g_local_bb.last_cabin_call_time));
+                return;
+            }
+        } else {
+            /* 不同层但相同呼叫：使用3ms防抖 */
+            if ((current_time - g_local_bb.last_cabin_call_time) < DEBOUNCE_TIME_MS) {
+                printf("[LocalBB] Cabin call %d debounced\r\n", floor);
+                return;
+            }
+        }
+    }
     
+    /* 发送事件 */
     PushEvent(LOCAL_EVENT_CABIN_CALL, floor, 0, 0);
     g_local_bb.cabin_call_count++;
     printf("[LocalBB] Cabin call queued: floor %d (current: %d)\r\n", floor, g_local_bb.current_floor);

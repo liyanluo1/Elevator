@@ -560,12 +560,12 @@ void FSM_StateDoorOperating(void) {
         /* 假设门正在开启 */
         g_blackboard.door_state = DOOR_OPENING;
     }
-    else if (elapsed < 2000) {
-        /* 等待2秒让门打开 */
+    else if (elapsed < 1500) {
+        /* 等待1.5秒让门打开 */
         sprintf(g_blackboard.debug_msg, "Door opening");
         // TIME BASED模式 - 不检查反馈
     }
-    else if (elapsed >= 2000 && elapsed < 5000) {
+    else if (elapsed >= 1500 && elapsed < 4500) {
         /* 门已完全打开 - 保持开门3秒 */
         if (door_open_time == 0) {
             door_open_time = HAL_GetTick();
@@ -575,7 +575,7 @@ void FSM_StateDoorOperating(void) {
         
         sprintf(g_blackboard.debug_msg, "Door open");
     }
-    else if (elapsed >= 5000 && !close_command_sent) {
+    else if (elapsed >= 4500 && !close_command_sent) {
         /* 发送关门命令 */
         printf("[FSM] >>> SENDING DOOR CLOSE COMMAND <<<\r\n");
         FSM_SendDoorCommand(false);
@@ -583,12 +583,12 @@ void FSM_StateDoorOperating(void) {
         g_blackboard.door_state = DOOR_CLOSING;  // 假设门正在关闭
         sprintf(g_blackboard.debug_msg, "Sent close cmd");
     }
-    else if (elapsed >= 5000 && close_command_sent && elapsed < 8000) {
-        /* 等待门关闭（3秒时间） */
+    else if (elapsed >= 4500 && close_command_sent && elapsed < 6000) {
+        /* 等待门关闭（1.5秒时间） */
         sprintf(g_blackboard.debug_msg, "Door closing");
         // TIME BASED模式 - 不检查反馈
     }
-    else if (elapsed >= 8000) {
+    else if (elapsed >= 6000) {
         /* 门已完全关闭，操作完成 */
         printf("[FSM] Door operation completed (time-based, elapsed=%lu ms)\r\n", elapsed);
         g_blackboard.door_state = DOOR_CLOSED;  // 确保状态为关闭

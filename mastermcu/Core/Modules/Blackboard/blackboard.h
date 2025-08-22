@@ -9,9 +9,9 @@
 #define STEPS_PER_FLOOR     10800   // 每层步数
 
 /* 时间配置（毫秒） */
-#define DOOR_OPENING_TIME_MS   2500  // 开门时间
-#define DOOR_OPEN_HOLD_TIME_MS 3000  // 保持开门时间
-#define DOOR_CLOSING_TIME_MS   2500  // 关门时间
+#define DOOR_OPENING_TIME_MS   1500  // 开门时间 - 1.5秒
+#define DOOR_OPEN_HOLD_TIME_MS 3000  // 保持开门时间 - 3秒
+#define DOOR_CLOSING_TIME_MS   1500  // 关门时间 - 1.5秒
 
 /* ==================== 枚举定义 ==================== */
 
