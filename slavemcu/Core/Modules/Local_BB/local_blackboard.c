@@ -104,10 +104,10 @@ void LocalBB_AddCabinCall(uint8_t floor) {
     if (floor == g_local_bb.last_sent_cabin_call) {
         /* 同楼层呼叫 */
         if (floor == g_local_bb.current_floor) {
-            /* 同层呼叫：使用100ms防抖，避免门操作期间重复触发 */
-            if ((current_time - g_local_bb.last_cabin_call_time) < 100) {
+            /* 同层呼叫：使用50ms防抖，平衡响应速度 */
+            if ((current_time - g_local_bb.last_cabin_call_time) < 50) {
                 printf("[LocalBB] Same floor cabin call %d debounced (wait %lums)\r\n", 
-                       floor, 100 - (current_time - g_local_bb.last_cabin_call_time));
+                       floor, 50 - (current_time - g_local_bb.last_cabin_call_time));
                 return;
             }
         } else {

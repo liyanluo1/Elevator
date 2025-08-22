@@ -1,1 +1,4 @@
 2025-08-22 14:00:59,103 [INFO] WebApp:194 - Connection lost
+2025-08-22 14:01:00,415 [INFO] WebApp:191 - Connection restablished
+2025-08-22 14:01:02,673 [INFO] WebApp:194 - Connection lost
+2025-08-22 14:01:03,343 [INFO] WebApp:191 - Connection restablished
